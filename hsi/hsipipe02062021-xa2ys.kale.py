@@ -706,7 +706,7 @@ _kale_uploadtos3_op = _kfp_components.func_to_container_op(
     name='hsipipe02062021-xa2ys',
     description='Pipeline hsi'
 )
-def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Ponca_DV', dir_specie='Ponca_DV_loc', dir_years='forest_jEquihua_mar', file_mask_specie='poncamask.tif', file_specie='poncadav2', specie='pan_onca', vol_shared_volume='hostpath-pvc'):
+def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Ponca_DV', dir_specie='Ponca_DV_loc', dir_years='forest_jEquihua_mar', file_mask_specie='poncamask.tif', file_specie='poncadav2', specie='pan_onca', vol_shared_volume='efs'):
     _kale_pvolumes_dict = OrderedDict()
     _kale_volume_step_names = []
     _kale_volume_name_parameters = []

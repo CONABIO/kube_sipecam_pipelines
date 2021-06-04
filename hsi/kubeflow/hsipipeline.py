@@ -809,6 +809,11 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
     _kale_createtestdata_task = _kale_createtestdata_op(dir_years)\
         .add_pvolumes(_kale_pvolumes_dict)\
         .after(_kale_reproject_task)
+    
+    #see: https://github.com/kubeflow/pipelines/issues/4857#issuecomment-740279537
+    
+    _kale_createtestdata_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
+    
     _kale_createtestdata_task.container.working_dir = "//shared_volume/kube_sipecam_playground/hsi/notebooks"
     _kale_createtestdata_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
@@ -832,6 +837,9 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
     _kale_maskandextract_task = _kale_maskandextract_op()\
         .add_pvolumes(_kale_pvolumes_dict)\
         .after(_kale_createtestdata_task)
+    
+    _kale_maskandextract_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
+    
     _kale_maskandextract_task.container.working_dir = "//shared_volume/kube_sipecam_playground/hsi/notebooks"
     _kale_maskandextract_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
@@ -855,6 +863,9 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
     _kale_bestmodel_task = _kale_bestmodel_op()\
         .add_pvolumes(_kale_pvolumes_dict)\
         .after(_kale_maskandextract_task)
+    
+    _kale_bestmodel_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
+    
     _kale_bestmodel_task.container.working_dir = "//shared_volume/kube_sipecam_playground/hsi/notebooks"
     _kale_bestmodel_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
@@ -877,6 +888,9 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
     _kale_temporalprojection_task = _kale_temporalprojection_op(date_of_processing, specie)\
         .add_pvolumes(_kale_pvolumes_dict)\
         .after(_kale_bestmodel_task)
+    
+    _kale_temporalprojection_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
+    
     _kale_temporalprojection_task.container.working_dir = "//shared_volume/kube_sipecam_playground/hsi/notebooks"
     _kale_temporalprojection_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
@@ -901,6 +915,9 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
     _kale_uploadtos3_task = _kale_uploadtos3_op(date_of_processing)\
         .add_pvolumes(_kale_pvolumes_dict)\
         .after(_kale_temporalprojection_task)
+    
+    _kale_uploadtos3_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
+    
     _kale_uploadtos3_task.container.working_dir = "//shared_volume/kube_sipecam_playground/hsi/notebooks"
     _kale_uploadtos3_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
@@ -935,7 +952,7 @@ if __name__ == "__main__":
     # Submit a pipeline run
     from kale.common.kfputils import generate_run_name
     run_name = generate_run_name(name_pipeline_run)
-    pipeline_parameters = {"date_of_processing" : datetime_pipeline_launch + "_from_py", 
+    pipeline_parameters = {"date_of_processing" : datetime_pipeline_launch + "_4_from_py", 
                            "dir_mask_specie" : 'Ponca_DV', 
                            "dir_specie" : 'Ponca_DV_loc', 
                            "dir_years" : 'forest_jEquihua_mar', 

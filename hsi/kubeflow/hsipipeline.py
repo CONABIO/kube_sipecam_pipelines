@@ -33,6 +33,7 @@ def downloadfroms3():
     import os
     import subprocess
     import glob
+    import shutil
 
     from IPython import get_ipython
 
@@ -42,7 +43,7 @@ def downloadfroms3():
     _kale_block2 = '''
     bucket_with_data = "hsi-kale"
 
-    input_dir_data = "/shared_volume/input_data"
+    input_dir_data = "/shared_volume/input_data_hsi"
 
     if not os.path.exists(input_dir_data):
         os.makedirs(input_dir_data)
@@ -103,6 +104,7 @@ def readdatainput(dir_mask_specie: str, dir_specie: str, file_mask_specie: str, 
     import os
     import subprocess
     import glob
+    import shutil
 
     from IPython import get_ipython
 
@@ -189,6 +191,7 @@ def reproject():
     import os
     import subprocess
     import glob
+    import shutil
 
     from IPython import get_ipython
 
@@ -271,6 +274,7 @@ def createtestdata(dir_years: str):
     import os
     import subprocess
     import glob
+    import shutil
 
     from IPython import get_ipython
 
@@ -356,6 +360,7 @@ def maskandextract():
     import os
     import subprocess
     import glob
+    import shutil
 
     from IPython import get_ipython
 
@@ -468,6 +473,7 @@ def bestmodel():
     import os
     import subprocess
     import glob
+    import shutil
 
     from IPython import get_ipython
 
@@ -553,6 +559,7 @@ def temporalprojection(date_of_processing: str, specie: str):
     import os
     import subprocess
     import glob
+    import shutil
 
     from IPython import get_ipython
 
@@ -650,6 +657,7 @@ def uploadtos3(date_of_processing: str):
     import os
     import subprocess
     import glob
+    import shutil
 
     from IPython import get_ipython
 
@@ -670,6 +678,8 @@ def uploadtos3(date_of_processing: str):
                       "--recursive"]
 
     subprocess.run(cmd_subprocess)
+    
+    shutil.rmtree(input_dir_data)
     '''
 
     # run the code blocks inside a jupyter kernel

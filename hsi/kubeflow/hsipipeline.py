@@ -1,5 +1,3 @@
-#execute as python3 hsipipeline.py hsi hsiexp
-
 import json
 import sys
 import datetime
@@ -60,7 +58,7 @@ def downloadfroms3():
     _kale_data_saving_block = '''
     # -----------------------DATA SAVING START---------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     _kale_marshal.save(input_dir_data, "input_dir_data")
     # -----------------------DATA SAVING END-----------------------------------
     '''
@@ -95,7 +93,7 @@ def readdatainput(dir_mask_specie: str, dir_specie: str, file_mask_specie: str, 
     _kale_data_loading_block = '''
     # -----------------------DATA LOADING START--------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     input_dir_data = _kale_marshal.load("input_dir_data")
     # -----------------------DATA LOADING END----------------------------------
     '''
@@ -149,7 +147,7 @@ def readdatainput(dir_mask_specie: str, dir_specie: str, file_mask_specie: str, 
     _kale_data_saving_block = '''
     # -----------------------DATA SAVING START---------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     _kale_marshal.save(input_dir_data, "input_dir_data")
     _kale_marshal.save(specie_loc, "specie_loc")
     _kale_marshal.save(specie_mask, "specie_mask")
@@ -181,7 +179,7 @@ def reproject():
     _kale_data_loading_block = '''
     # -----------------------DATA LOADING START--------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     specie_loc = _kale_marshal.load("specie_loc")
     variable_specie_loc = _kale_marshal.load("variable_specie_loc")
     # -----------------------DATA LOADING END----------------------------------
@@ -230,7 +228,7 @@ def reproject():
     _kale_data_saving_block = '''
     # -----------------------DATA SAVING START---------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     _kale_marshal.save(specie_loc_transf, "specie_loc_transf")
     _kale_marshal.save(variable_specie_loc_transf, "variable_specie_loc_transf")
     # -----------------------DATA SAVING END-----------------------------------
@@ -263,7 +261,7 @@ def createtestdata(dir_years: str):
     _kale_data_loading_block = '''
     # -----------------------DATA LOADING START--------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     input_dir_data = _kale_marshal.load("input_dir_data")
     specie_loc_transf = _kale_marshal.load("specie_loc_transf")
     variable_specie_loc_transf = _kale_marshal.load("variable_specie_loc_transf")
@@ -319,7 +317,7 @@ def createtestdata(dir_years: str):
     _kale_data_saving_block = '''
     # -----------------------DATA SAVING START---------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     _kale_marshal.save(test_sp, "test_sp")
     _kale_marshal.save(variable_test_sp, "variable_test_sp")
     # -----------------------DATA SAVING END-----------------------------------
@@ -348,7 +346,7 @@ def maskandextract():
     _kale_data_loading_block = '''
     # -----------------------DATA LOADING START--------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     specie_mask = _kale_marshal.load("specie_mask")
     test_sp = _kale_marshal.load("test_sp")
     variable_mask_specie = _kale_marshal.load("variable_mask_specie")
@@ -432,7 +430,7 @@ def maskandextract():
     _kale_data_saving_block = '''
     # -----------------------DATA SAVING START---------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     _kale_marshal.save(e_test, "e_test")
     _kale_marshal.save(specie_mask, "specie_mask")
     _kale_marshal.save(variable_e_test, "variable_e_test")
@@ -463,7 +461,7 @@ def bestmodel():
     _kale_data_loading_block = '''
     # -----------------------DATA LOADING START--------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     e_test = _kale_marshal.load("e_test")
     variable_e_test = _kale_marshal.load("variable_e_test")
     # -----------------------DATA LOADING END----------------------------------
@@ -513,7 +511,7 @@ def bestmodel():
     _kale_data_saving_block = '''
     # -----------------------DATA SAVING START---------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     _kale_marshal.save(best_model_2004, "best_model_2004")
     _kale_marshal.save(variable_best_model_2004, "variable_best_model_2004")
     # -----------------------DATA SAVING END-----------------------------------
@@ -547,7 +545,7 @@ def temporalprojection(date_of_processing: str, specie: str):
     _kale_data_loading_block = '''
     # -----------------------DATA LOADING START--------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     best_model_2004 = _kale_marshal.load("best_model_2004")
     specie_mask = _kale_marshal.load("specie_mask")
     variable_best_model_2004 = _kale_marshal.load("variable_best_model_2004")
@@ -610,13 +608,12 @@ def temporalprojection(date_of_processing: str, specie: str):
         
     ipython.magic(string_temporal_proj)
 
-    #temporal_projection = ipython.magic("Rget temporal_projection")
     '''
 
     _kale_data_saving_block = '''
     # -----------------------DATA SAVING START---------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
     _kale_marshal.save(save_dir, "save_dir")
     # -----------------------DATA SAVING END-----------------------------------
     '''
@@ -648,7 +645,8 @@ def uploadtos3(date_of_processing: str):
     _kale_data_loading_block = '''
     # -----------------------DATA LOADING START--------------------------------
     from kale import marshal as _kale_marshal
-    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_playground/hsi/notebooks/.hsi_using_r2py.ipynb.kale.marshal.dir")
+    _kale_marshal.set_data_dir("/shared_volume/kube_sipecam_pipelines/hsi/kubeflow/.hsi_using_r2py_k8s_cluster_kale.ipynb.kale.marshal.dir")
+    input_dir_data = _kale_marshal.load("input_dir_data")
     save_dir = _kale_marshal.load("save_dir")
     # -----------------------DATA LOADING END----------------------------------
     '''
@@ -669,7 +667,6 @@ def uploadtos3(date_of_processing: str):
 
     bucket_results = "s3://hsi-kale-results"
 
-
     bucket_path_uploading = os.path.join(bucket_results, date_of_processing)
 
     cmd_subprocess = ["aws", "s3", "cp",
@@ -678,7 +675,7 @@ def uploadtos3(date_of_processing: str):
                       "--recursive"]
 
     subprocess.run(cmd_subprocess)
-    
+
     shutil.rmtree(input_dir_data)
     '''
 
@@ -734,7 +731,7 @@ _kale_uploadtos3_op = _kfp_components.func_to_container_op(
     name=name_pipeline_run,
     description='Pipeline hsi'
 )
-def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Ponca_DV', dir_specie='Ponca_DV_loc', dir_years='forest_jEquihua_mar', file_mask_specie='poncamask.tif', file_specie='poncadav2', specie='pan_onca', vol_shared_volume='efs'):
+def auto_generated_pipeline(date_of_processing='07_06_2021', dir_mask_specie='Ponca_DV', dir_specie='Ponca_DV_loc', dir_years='forest_jEquihua_mar', file_mask_specie='poncamask.tif', file_specie='poncadav2', specie='pan_onca', vol_shared_volume='efs'):
     _kale_pvolumes_dict = OrderedDict()
     _kale_volume_step_names = []
     _kale_volume_name_parameters = []
@@ -754,8 +751,7 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
     
     _kale_downloadfroms3_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
     
-    
-    _kale_downloadfroms3_task.container.working_dir = "//shared_volume/kubeflow/pipelines"
+    _kale_downloadfroms3_task.container.working_dir = "//shared_volume/kube_sipecam_pipelines/hsi/kubeflow"
     _kale_downloadfroms3_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
     _kale_output_artifacts = {}
@@ -779,9 +775,9 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
         .add_pvolumes(_kale_pvolumes_dict)\
         .after(_kale_downloadfroms3_task)
     
-    _kale_readdatainput_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
+    _kale_readdatainput_task.execution_options.caching_strategy.max_cache_staleness = "P0D"    
     
-    _kale_readdatainput_task.container.working_dir = "//shared_volume/kubeflow/pipelines"
+    _kale_readdatainput_task.container.working_dir = "//shared_volume/kube_sipecam_pipelines/hsi/kubeflow"
     _kale_readdatainput_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
     _kale_output_artifacts = {}
@@ -807,7 +803,7 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
     
     _kale_reproject_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
     
-    _kale_reproject_task.container.working_dir = "//shared_volume/kubeflow/pipelines"
+    _kale_reproject_task.container.working_dir = "//shared_volume/kube_sipecam_pipelines/hsi/kubeflow"
     _kale_reproject_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
     _kale_output_artifacts = {}
@@ -830,11 +826,9 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
         .add_pvolumes(_kale_pvolumes_dict)\
         .after(_kale_reproject_task)
     
-    #see: https://github.com/kubeflow/pipelines/issues/4857#issuecomment-740279537
-    
     _kale_createtestdata_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
     
-    _kale_createtestdata_task.container.working_dir = "//shared_volume/kubeflow/pipelines"
+    _kale_createtestdata_task.container.working_dir = "//shared_volume/kube_sipecam_pipelines/hsi/kubeflow"
     _kale_createtestdata_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
     _kale_output_artifacts = {}
@@ -858,9 +852,9 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
         .add_pvolumes(_kale_pvolumes_dict)\
         .after(_kale_createtestdata_task)
     
-    _kale_maskandextract_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
+    _kale_maskandextract_task.execution_options.caching_strategy.max_cache_staleness = "P0D"    
     
-    _kale_maskandextract_task.container.working_dir = "//shared_volume/kubeflow/pipelines"
+    _kale_maskandextract_task.container.working_dir = "//shared_volume/kube_sipecam_pipelines/hsi/kubeflow"
     _kale_maskandextract_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
     _kale_output_artifacts = {}
@@ -886,7 +880,7 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
     
     _kale_bestmodel_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
     
-    _kale_bestmodel_task.container.working_dir = "//shared_volume/kubeflow/pipelines"
+    _kale_bestmodel_task.container.working_dir = "//shared_volume/kube_sipecam_pipelines/hsi/kubeflow"
     _kale_bestmodel_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
     _kale_output_artifacts = {}
@@ -911,7 +905,7 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
     
     _kale_temporalprojection_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
     
-    _kale_temporalprojection_task.container.working_dir = "//shared_volume/kubeflow/pipelines"
+    _kale_temporalprojection_task.container.working_dir = "//shared_volume/kube_sipecam_pipelines/hsi/kubeflow"
     _kale_temporalprojection_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
     _kale_output_artifacts = {}
@@ -934,11 +928,11 @@ def auto_generated_pipeline(date_of_processing='02_06_2021', dir_mask_specie='Po
 
     _kale_uploadtos3_task = _kale_uploadtos3_op(date_of_processing)\
         .add_pvolumes(_kale_pvolumes_dict)\
-        .after(_kale_temporalprojection_task)
+        .after(_kale_temporalprojection_task, _kale_downloadfroms3_task)
     
     _kale_uploadtos3_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
     
-    _kale_uploadtos3_task.container.working_dir = "//shared_volume/kubeflow/pipelines"
+    _kale_uploadtos3_task.container.working_dir = "//shared_volume/kube_sipecam_pipelines/hsi/kubeflow"
     _kale_uploadtos3_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))
     _kale_output_artifacts = {}
@@ -972,7 +966,7 @@ if __name__ == "__main__":
     # Submit a pipeline run
     from kale.common.kfputils import generate_run_name
     run_name = generate_run_name(name_pipeline_run)
-    pipeline_parameters = {"date_of_processing" : datetime_pipeline_launch + "_7_from_py", 
+    pipeline_parameters = {"date_of_processing" : datetime_pipeline_launch + "_from_py_3", 
                            "dir_mask_specie" : 'Ponca_DV', 
                            "dir_specie" : 'Ponca_DV_loc', 
                            "dir_years" : 'forest_jEquihua_mar', 

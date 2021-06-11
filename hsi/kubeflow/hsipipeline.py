@@ -749,6 +749,7 @@ def auto_generated_pipeline(date_of_processing='07_06_2021', dir_mask_specie='Po
         .add_pvolumes(_kale_pvolumes_dict)\
         .after()
     
+    #see: https://github.com/kubeflow/pipelines/issues/4857#issuecomment-740279537
     _kale_downloadfroms3_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
     
     _kale_downloadfroms3_task.container.working_dir = "//shared_volume/kube_sipecam_pipelines/hsi/kubeflow"

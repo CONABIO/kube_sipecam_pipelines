@@ -975,7 +975,7 @@ if __name__ == "__main__":
     # Submit a pipeline run
     from kale.common.kfputils import generate_run_name
     run_name = generate_run_name(name_pipeline_run)
-    pipeline_parameters = {"date_of_processing" : datetime_pipeline_launch + "_from_py_5", 
+    pipeline_parameters = {"date_of_processing" : datetime_pipeline_launch + "_from_py", 
                            "dir_mask_specie" : 'Ponca_DV', 
                            "dir_specie" : 'Ponca_DV_loc', 
                            "dir_years" : 'forest_jEquihua_mar', 

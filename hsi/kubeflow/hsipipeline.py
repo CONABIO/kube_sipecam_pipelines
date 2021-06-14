@@ -881,6 +881,12 @@ def auto_generated_pipeline(date_of_processing='07_06_2021', dir_mask_specie='Po
     
     _kale_bestmodel_task.execution_options.caching_strategy.max_cache_staleness = "P0D"
     
+    #see: https://kubeflow-pipelines.readthedocs.io/en/latest/source/kfp.dsl.html#kfp.dsl.Sidecar.add_resource_limit
+    #can also be: _kale_step_limits = {'nvidia.com/gpu': '1'}
+    _kale_step_limits = {'cpu': '24'}
+    for _kale_k, _kale_v in _kale_step_limits.items():
+        _kale_bestmodel_task.container.add_resource_limit(_kale_k, _kale_v)    
+    
     _kale_bestmodel_task.container.working_dir = "//shared_volume/kube_sipecam_pipelines/hsi/kubeflow"
     _kale_bestmodel_task.container.set_security_context(
         k8s_client.V1SecurityContext(run_as_user=0))

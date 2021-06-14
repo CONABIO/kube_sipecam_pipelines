@@ -677,6 +677,8 @@ def uploadtos3(date_of_processing: str):
     subprocess.run(cmd_subprocess)
 
     shutil.rmtree(input_dir_data)
+    
+    shutil.rmtree(save_dir)
     '''
 
     # run the code blocks inside a jupyter kernel
@@ -973,7 +975,7 @@ if __name__ == "__main__":
     # Submit a pipeline run
     from kale.common.kfputils import generate_run_name
     run_name = generate_run_name(name_pipeline_run)
-    pipeline_parameters = {"date_of_processing" : datetime_pipeline_launch + "_from_py_3", 
+    pipeline_parameters = {"date_of_processing" : datetime_pipeline_launch + "_from_py_5", 
                            "dir_mask_specie" : 'Ponca_DV', 
                            "dir_specie" : 'Ponca_DV_loc', 
                            "dir_years" : 'forest_jEquihua_mar', 

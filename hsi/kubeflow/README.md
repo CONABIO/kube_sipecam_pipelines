@@ -18,5 +18,5 @@ https://proc-sys.route53-kube-sipecam.net:30001/hsiurl
 4. Clone this repo if its not already cloned using a terminal inside jupyterlab, change directory to `kube_sipecam_pipelines/hsi/kubeflow` and execute:
 
 ```
-python3 <name of pipeline>.py hsi hsiexperiment
+python3 hsipipeline.py hsi hsiexperiment
 ```

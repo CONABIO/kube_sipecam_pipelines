@@ -25,4 +25,9 @@ https://proc-sys.route53-kube-sipecam.net:30001/hsiurl
 python3 hsipipeline.py hsi hsiexperiment
 ```
 
-5. Scale down components: [scale-down-of-components](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#scale-down-of-components)
+5. Scale down components: [scale-down-of-components](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#scale-down-of-components) and use:
+
+```
+kubectl -n kubeflow scale deployments/kale-jupyterlab --replicas=0
+```
+

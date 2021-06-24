@@ -11,11 +11,11 @@ kubectl -n kubeflow scale deployments/kale-jupyterlab --replicas=1
 
 ```
 # For testing
-https://api.k8s-dummy.dummy.route53-kube-sipecam.net:30001/hsiurl
+https://api.k8s-dummy.dummy.route53-kube-sipecam.net:30001/myurl
 
 # For production
 
-https://proc-sys.route53-kube-sipecam.net:30001/hsiurl
+https://proc-sys.route53-kube-sipecam.net:30001/myurl
 
 ```
 

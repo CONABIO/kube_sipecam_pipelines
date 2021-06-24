@@ -1,5 +1,5 @@
 
-1. Go to [cluster usage](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#cluster-usage) for scaling up/down worker nodes.
+1. Go to [cluster deployment](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#cluster-deployment) for scaling up/down worker nodes.
 
 2. Inside `t2.micro` create deployment using [kube_sipecam/deployments/jupyterlab_cert/efs/README.md](https://github.com/CONABIO/kube_sipecam/blob/master/deployments/jupyterlab_cert/efs/README.md)
 

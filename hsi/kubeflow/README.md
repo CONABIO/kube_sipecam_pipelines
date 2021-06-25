@@ -1,33 +1,11 @@
 
-1. Go to [cluster deployment](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#cluster-deployment) for scaling up/down worker nodes.
+1. Go to [cluster deployment](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#cluster-deployment) for scaling up worker nodes.
 
-2. Inside `t2.micro` create deployment with [kube_sipecam/deployments/jupyterlab_cert/efs/README.md](https://github.com/CONABIO/kube_sipecam/blob/master/deployments/jupyterlab_cert/efs/README.md) or if already created use:
-
-```
-kubectl -n kubeflow scale deployments/kale-jupyterlab --replicas=1
-```
-
-3. In your browser use next url. This will open a jupyterlab UI.
-
-```
-# For testing
-https://api.k8s-dummy.dummy.route53-kube-sipecam.net:30001/myurl
-
-# For production
-
-https://proc-sys.route53-kube-sipecam.net:30001/myurl
-
-```
-
-4. Clone this repo if its not already cloned using a terminal inside jupyterlab, change directory to `kube_sipecam_pipelines/hsi/kubeflow` and execute:
+2. Clone this repo if its not already cloned using a terminal inside jupyterlab, change directory to `kube_sipecam_pipelines/hsi/kubeflow` and execute:
 
 ```
 python3 hsipipeline.py hsi hsiexperiment
 ```
 
-5. Scale down components: [scale-down-of-components](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#scale-down-of-components) and use:
-
-```
-kubectl -n kubeflow scale deployments/kale-jupyterlab --replicas=0
-```
+3. Scale down components and worker nodes: [scale-down-of-components](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#scale-down-of-components).
 

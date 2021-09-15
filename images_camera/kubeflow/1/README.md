@@ -1,4 +1,6 @@
-Pipeline for images from camera.
+Pipeline for camera's images.
+
+Pipeline description:
 
 Data input:  `ecoinf-snmb-data/kale_aws/` s3 bucket. Source: `/sipecam/ecoinformatica/kale_aws` in sipecamdata server.
 

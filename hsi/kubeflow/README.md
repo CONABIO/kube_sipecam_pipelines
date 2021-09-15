@@ -1,3 +1,9 @@
+Pipeline for habitat suitability index, *aka* HSI.
+
+Data input: `hsi-kale` s3 bucket.
+
+Data output: `hsi-kale-results` s3 bucket
+
 
 1. Go to [cluster deployment](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#cluster-deployment) for scaling up worker nodes and components.
 

@@ -4,6 +4,8 @@ Data input:  `ecoinf-snmb-data/kale_aws/` s3 bucket. Source: `/sipecam/ecoinform
 
 Data output: 
 
+Docker image: `sipecam/ecoinf-kale-gpu:0.6.1` see: [doc](https://github.com/CONABIO/kube_sipecam/tree/master/dockerfiles/ecoinf/gpu)
+
 
 1. Go to [cluster deployment](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#cluster-deployment) for scaling up worker nodes and components.
 

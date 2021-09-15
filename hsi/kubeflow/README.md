@@ -1,5 +1,7 @@
 Pipeline for habitat suitability index, *aka* HSI.
 
+Pipeline description:
+
 Data input: `hsi-kale` s3 bucket.
 
 Data output: `hsi-kale-results` s3 bucket

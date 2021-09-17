@@ -6,6 +6,7 @@ In this pipeline we perform the inference of the [Megadetector](https://github.c
 
 ## Data input
 
+Dataset built in [pipeline_1](https://github.com/CONABIO/kube_sipecam_pipelines/tree/main/camera_images/kubeflow/1)
 
 ## Data output
 

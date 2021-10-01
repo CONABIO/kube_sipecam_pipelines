@@ -2,6 +2,13 @@ Pipeline for audio's recordings.
 
 ## Pipeline description
 
+## Requirements
+
+`probe_config_detection.json`
+
+`probe_config_classification.json`
+
+`col_config.json`
 
 ## Data input
 

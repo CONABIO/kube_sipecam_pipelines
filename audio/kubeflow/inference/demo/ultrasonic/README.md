@@ -12,10 +12,15 @@ Pipeline for audio's recordings.
 
 ## Data input
 
+
 ## Data output
 
 
 ## Docker image 
+
+`sipecam/audio-dgpi-kale-tensorflow-yuntu-dask-gpu-cert:0.6.1` see [doc](https://github.com/CONABIO/kube_sipecam/blob/master/dockerfiles/audio/tensorflow-yuntu-dask-gpu/0.6.1/Dockerfile)
+
+## Launch
 
 1. Go to [cluster deployment](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#cluster-deployment) for scaling up worker nodes and components.
 

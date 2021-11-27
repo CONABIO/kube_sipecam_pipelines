@@ -13,7 +13,7 @@ In the folder `/shared_volume/ecoinf_tests/kale_aws/results/pipeline_1/evaluatio
 
 ## Data input
 
-`ecoinf-snmb-data/kale_aws/` s3 bucket. Source: `/sipecam/ecoinformatica/infra_kube_sipecam/ecoinf_tests` in sipecamdata server.
+`/sipecam/ecoinformatica/infra_kube_sipecam/ecoinf_tests` in sipecamdata server.
 
 ## Data output
 

@@ -2,11 +2,17 @@ Pipeline for habitat suitability index, *aka* HSI.
 
 Pipeline description:
 
-Data input: `hsi-kale` s3 bucket.
+# Data input
 
-Data output: `hsi-kale-results` s3 bucket
+`hsi-kale` s3 bucket. Source: `/LUSTRE/MADMEX/tasks/2020/9_data_for_hsi_mariana_munguia/` dirs: `Ponca_DV`, `Ponca_DV_loc`, `forest_jEquihua_mar`.
 
-Docker image: `sipecam/hsi-kale:0.6.1` see [doc](https://github.com/CONABIO/kube_sipecam/tree/master/dockerfiles/hsi)
+# Data output 
+
+`hsi-kale-results` s3 bucket
+
+# Docker image
+
+`sipecam/hsi-kale:0.6.1` see [doc](https://github.com/CONABIO/kube_sipecam/tree/master/dockerfiles/hsi)
 
 
 1. Go to [cluster deployment](https://conabio.github.io/kube_sipecam/1.Deployment-of-Kubernetes-cluster-in-AWS.html#cluster-deployment) for scaling up worker nodes and components.

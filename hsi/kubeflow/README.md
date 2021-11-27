@@ -4,7 +4,7 @@ Pipeline for habitat suitability index, *aka* HSI.
 
 ## Data input
 
-`hsi-kale` s3 bucket. Source: `/LUSTRE/MADMEX/tasks/2020/9_data_for_hsi_mariana_munguia/` dirs: `Ponca_DV`, `Ponca_DV_loc`, `forest_jEquihua_mar`.
+`/LUSTRE/MADMEX/tasks/2020/9_data_for_hsi_mariana_munguia/` dirs: `Ponca_DV`, `Ponca_DV_loc`, `forest_jEquihua_mar`.
 
 ## Data output 
 

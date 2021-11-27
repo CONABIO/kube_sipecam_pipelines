@@ -1,16 +1,16 @@
 Pipeline for habitat suitability index, *aka* HSI.
 
-Pipeline description:
+## Pipeline description
 
-# Data input
+## Data input
 
 `hsi-kale` s3 bucket. Source: `/LUSTRE/MADMEX/tasks/2020/9_data_for_hsi_mariana_munguia/` dirs: `Ponca_DV`, `Ponca_DV_loc`, `forest_jEquihua_mar`.
 
-# Data output 
+## Data output 
 
 `hsi-kale-results` s3 bucket
 
-# Docker image
+## Docker image
 
 `sipecam/hsi-kale:0.6.1` see [doc](https://github.com/CONABIO/kube_sipecam/tree/master/dockerfiles/hsi)
 

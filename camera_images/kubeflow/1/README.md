@@ -17,7 +17,7 @@ In the folder `/shared_volume/ecoinf_tests/kale_aws/results/pipeline_1/evaluatio
 
 ## Data output
 
-`/shared_volume/ecoinf_tests/kale_aws/results/pipeline_1/evaluation`
+`/sipecam/ecoinformatica/infra_kube_sipecam/ecoinf_tests/results_from_aws/sept-2021/pipeline_1` in sipecamdata server.
 
 ## Docker image 
 

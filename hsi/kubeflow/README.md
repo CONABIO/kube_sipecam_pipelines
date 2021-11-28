@@ -8,7 +8,7 @@ Pipeline for habitat suitability index, *aka* HSI.
 
 ## Data output 
 
-`hsi-kale-results` s3 bucket
+`/LUSTRE/MADMEX/tasks/2020/9_data_for_hsi_mariana_munguia/results_aws`
 
 ## Docker image
 

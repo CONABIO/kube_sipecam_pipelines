@@ -10,7 +10,7 @@ Dataset built in [pipeline_1](https://github.com/CONABIO/kube_sipecam_pipelines/
 
 ## Data output
 
-`/shared_volume/ecoinf_tests/kale_aws/data/snmb_megadetector_visualization`
+`/sipecam/ecoinformatica/infra_kube_sipecam/ecoinf_tests/results_from_aws/sept-2021/pipeline_1_TF1` in sipecamdata server.
 
 ## Docker image
 

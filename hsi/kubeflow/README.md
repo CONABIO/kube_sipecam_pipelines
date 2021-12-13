@@ -2,6 +2,8 @@ Pipeline for habitat suitability index, *aka* HSI.
 
 ## Pipeline description
 
+Pipeline uses hsi which is package to build temporal species distribution models. hsi uses temporal environmental information to model the niche as an n-dimensional Minimum Volume Ellipsoid. See [luismurao/hsi](https://github.com/luismurao/hsi)
+
 ## Data input
 
 `/LUSTRE/MADMEX/tasks/2020/9_data_for_hsi_mariana_munguia/` dirs: `Ponca_DV`, `Ponca_DV_loc`, `forest_jEquihua_mar`.

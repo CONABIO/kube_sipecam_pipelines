@@ -2,7 +2,7 @@ Pipeline for camera's images.
 
 ## Pipeline description
 
-In this pipeline we perform the inference of the [Megadetector](https://github.com/microsoft/CameraTraps/blob/master/megadetector.md), a generic animal detector in camera trap photos, on the SNMB images of the dataset built in [pipeline_1](https://github.com/CONABIO/kube_sipecam_pipelines/tree/main/camera_images/kubeflow/1), and save the images with the visualizations of the detections in the folder `/shared_volume/ecoinf_tests/kale_aws/data/snmb_megadetector_visualization`.
+In this pipeline we perform the inference of the [Megadetector](https://github.com/microsoft/CameraTraps/blob/master/megadetector.md), a generic animal detector in camera trap photos, on the SNMB images of the dataset built in [pipeline_1](https://github.com/CONABIO/kube_sipecam_pipelines/tree/main/camera_images/kubeflow/1), and save the bounding boxes in `detections_megadet.csv`.
 
 ## Data input
 

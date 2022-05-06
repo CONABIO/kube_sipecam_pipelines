@@ -32,9 +32,44 @@ The following products are generated for each processing unit:
 - `std_soundscape.png`: Soundscape standard deviation plot
 - `std_soundscape_metadata.json`:  metadata associated to `std_soundscape.png`
 
-### Metadata
+## Pipeline Steps:
 
-Metadata examples:
+<p align="center">
+  <img src=https://i.imgur.com/7iiWB81.png" />
+</p>
+
+Our pipeline includes the following steps:
+
+- `get-audio-df`:  Load alfresco credentials, get audio `dataframe` from `audio-collection`
+
+- `create-results-dirstruct`: Create folder structure to store results
+
+- `compute-soundscapes` : Process audio data to compute soundscapes at cumulus-node-recording-deployment level
+
+The pipeline is computed using [kale](https://github.com/kubeflow-kale/kale)-[kubeflow](https://www.kubeflow.org/).
+
+- `sound-scape-nod-rec-dep-tons1.kale.py`  uses the following `docker` image (no GPU usage):
+
+[sipecam/audio-dgpi-kale-tensorflow-yuntu-dask-cert:0.6.1_dev](https://github.com/CONABIO/yuntu-private/blob/alfresco/dockerfiles/tensorflow-yuntu-dask/0.6.1_dev/Dockerfile)
+
+## Requirements
+
+1. `.env` file
+
+	To run this pipeline must exist an environment file (`.env`) in the root directory of the project. The file contains the corresponding _alfresco_ credentials, and follows the structure below:
+
+```bash
+ALFRESCO_URL="<alfresco-url>"
+API_ENDPOINT="<api-endpoint>"
+ALFRESCO_USER=<alfresco-user>
+ALFRESCO_PASSWORD=<password>
+X_API_KEY=<x-api-key>
+```
+
+2. The `utils.py` module provided in this directory must be located in the following path: `/shared_volume/audio/utils.py`.
+
+
+## Metadata examples:
 
 - `soundscape_metadata.json`
 
@@ -155,44 +190,6 @@ Metadata examples:
     "DateDeployment": "2021-08-04"
 }
 ```
-
-
-
-
-
-## Pipeline Steps:
-
-![image-20220504214512656](C:\Users\sebastian\AppData\Roaming\Typora\typora-user-images\image-20220504214512656.png)
-
-Our pipeline includes the following steps:
-
-- `get-audio-df`:  Load alfresco credentials, get audio `dataframe` from `audio-collection`
-
-- `create-results-dirstruct`: Create folder structure to store results
-
-- `compute-soundscapes` : Process audio data to compute soundscapes at cumulus-node-recording-deployment level
-
-The pipeline is computed using [kale](https://github.com/kubeflow-kale/kale)-[kubeflow](https://www.kubeflow.org/).
-
-- `sound-scape-nod-rec-dep-tons1.kale.py`  uses the following `docker` image (no GPU usage):
-
-[sipecam/audio-dgpi-kale-tensorflow-yuntu-dask-cert:0.6.1_dev](https://github.com/CONABIO/yuntu-private/blob/alfresco/dockerfiles/tensorflow-yuntu-dask/0.6.1_dev/Dockerfile)
-
-## Requirements
-
-1. `.env` file
-
-	To run this pipeline must exist an environment file (`.env`) in the root directory of the project. The file contains the corresponding _alfresco_ credentials, and follows the structure below:
-
-```bash
-ALFRESCO_URL="<alfresco-url>"
-API_ENDPOINT="<api-endpoint>"
-ALFRESCO_USER=<alfresco-user>
-ALFRESCO_PASSWORD=<password>
-X_API_KEY=<x-api-key>
-```
-
-2. The `utils.py` module provided in this directory must be located in the following path: `/shared_volume/audio/utils.py`.
 
 
 

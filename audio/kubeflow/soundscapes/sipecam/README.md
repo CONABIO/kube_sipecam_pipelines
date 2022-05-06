@@ -3,8 +3,6 @@
   <img src="https://i.imgur.com/qymEZ1n.png" width="120" /> 
 </p>
 
-
-
 # Objective
 
 This _pipeline_ aims to generate soundscapes using audio data from the Sitios Permanentes de Calibración y Monitoreo de la Biodiversidad (SiPeCaM) project. In particular, we are processing data using the following fields:
@@ -35,7 +33,7 @@ The following products are generated for each processing unit:
 ## Pipeline Steps:
 
 <p align="center">
-  <img src=https://i.imgur.com/7iiWB81.png" />
+  <img src=https://i.imgur.com/7iiWB81.png"/>
 </p>
 
 Our pipeline includes the following steps:
@@ -48,7 +46,7 @@ Our pipeline includes the following steps:
 
 The pipeline is computed using [kale](https://github.com/kubeflow-kale/kale)-[kubeflow](https://www.kubeflow.org/).
 
-- `sound-scape-nod-rec-dep-tons1.kale.py`  uses the following `docker` image (no GPU usage):
+- [`sound-scape-nod-rec-dep-tons1.kale.py`](https://github.com/CONABIO/kube_sipecam_pipelines/blob/main/audio/kubeflow/soundscapes/sipecam/.kale/sound-scape-nod-rec-dep-tons1.kale.py)  uses the following `docker` image (no GPU usage):
 
 [sipecam/audio-dgpi-kale-tensorflow-yuntu-dask-cert:0.6.1_dev](https://github.com/CONABIO/yuntu-private/blob/alfresco/dockerfiles/tensorflow-yuntu-dask/0.6.1_dev/Dockerfile)
 

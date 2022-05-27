@@ -36,8 +36,9 @@ The following products are generated for each processing unit:
 ## Pipeline Steps:
 
 <p align="center">
-  <img src="https://i.imgur.com/eQrYcAh.png"/>
+  <img src="https://i.imgur.com/YxryqRX.png"/>
 </p>
+
 
 
 Our pipeline includes the following steps:
@@ -46,6 +47,8 @@ Our pipeline includes the following steps:
 - `create-results-dirstruct`: Create folder structure to store results
 - `compute-soundscapes` : Process audio data to compute soundscapes at cumulus-node-recording-deployment level
 - `spec-n-specvid`: Process spectrograms and spectrograms videos for samples of two audio at at cumulus-node-recording-deployment levels.
+- `upload-to-alfresco`: Upload processed files to `alfresco-site` : `sipecam-soundscape`
+- `upload-alfresco-model-data`: Upload files' metadata to `alfresco-model`
 
 The pipeline is computed using [kale](https://github.com/kubeflow-kale/kale)-[kubeflow](https://www.kubeflow.org/).
 

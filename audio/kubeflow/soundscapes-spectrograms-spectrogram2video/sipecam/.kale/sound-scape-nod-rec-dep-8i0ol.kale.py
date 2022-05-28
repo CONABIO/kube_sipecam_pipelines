@@ -7,7 +7,7 @@ from collections import OrderedDict
 from kubernetes import client as k8s_client
 
 
-def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: int, PAGESIZE: int, SAMPLERATE: float):
+def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: bool, PAGESIZE: int, SAMPLERATE: float):
     _kale_pipeline_parameters_block = '''
     AUTH_ENDPOINT = "{}"
     BASE_ENDPOINT = "{}"
@@ -84,7 +84,7 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: int
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
         deployment = sub_audio_df['deployment'].values[0]
-        audio = sub_audio_df.audio[0].cut(0,1)
+        audio = sub_audio_df.audio[0]
         
         colormap = cm.get_cmap(cmap)
         duration = audio.duration
@@ -132,7 +132,7 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: int
         for c in clips:
             c.close()
 
-    def change_type_sipecam_sc(session, root_folder_id, path, file_type):
+    def change_type_sipecam_sc(session, root_folder_id, path, file_type, node_type):
         if file_type == "sequence.png":
             metadata_name = "soundscape_seq_metadata.json"
             aggr_type = "None"
@@ -150,78 +150,89 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: int
             semi_path = path.split("soundscapes/")[-1]
             semi_path_file = os.path.join(semi_path, file_type)
             local_path_file_metadata = os.path.join(path, metadata_name)
-            print(f"Changing type for {os.path.join(semi_path_file)}")
+            print(f"Changing type for {os.path.join(semi_path)}")
             alfresco_path = os.path.join("/Company Home/Sites/sipecam-soundscape/documentLibrary/", semi_path)
+
             response = session.get(
                 os.getenv("ALFRESCO_URL")
                 + BASE_ENDPOINT
                 + "/nodes/"
                 + root_folder_id
-                + "/children?relativePath="+semi_path_file+"&include=aspectNames&skipCount=0&maxItems=1"
-            )
-
-            # error flag
-            is_error = False
-
+                + "/children?relativePath="+semi_path+"&include=aspectNames&skipCount=0"
+            )        
             # if request is successful then continue
             if response.status_code == 200:
 
                 data_file = open(local_path_file_metadata)
                 data_json = json.load(data_file)
-                response_entries = response.json()["list"]["entries"][0]
+                response_entries = response.json()["list"]["entries"]
 
-                if response_entries["entry"]["isFile"]:
+                for entry in response_entries:
+                    if entry['entry']['name']==file_type and entry['entry']['isFile']:
+                        prop_dict = {}
+                        
+                        if entry['entry']['name']==file_type:
+                        
+                            if entry['entry']['name'] in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]:
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:aggr"] = str(aggr_type)
+                                prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
+                                prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
+                                prop_dict["soundscape:cycle_config_start_time"] =  datetime.datetime.strptime(data_json["product_configs"]['hasher_config']['kwargs']['start_time'], 
+                                                                                                        "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+                                prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
+                                prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
+                                prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
+                                prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
+                                prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
+                                prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
+                                prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
+                                prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
+                                prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
+                                prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
+                                prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
+                                prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
+                                prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
+                                prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
-                    prop_dict = {}
-                    # map properties
-                    prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
-                    prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
-                    prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
-                    prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
-                    prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
-                    prop_dict["soundscape:aggr"] = str(aggr_type)
-                    prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
-                    prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
-                    prop_dict["soundscape:cycle_config_start_time"] = data_json["product_configs"]['hasher_config']['kwargs']['start_time'] #
-                    prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
-                    prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
-                    prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
-                    prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
-                    prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
-                    prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
-                    prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
-                    prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
-                    prop_dict["soundscape:indices"] = str(data_json['product_configs']['indices'])
-                    prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
-                    prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                    prop_dict["soundscape:product_id"] = str(data_json["product_id"])
-                    prop_dict["soundscape:product_name"] = str(data_json["product_name"])
-                    prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
-                    prop_dict["soundscape:product_path"] = str(alfresco_path)
-                    prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
-                    prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
-                    prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
-                    prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
-                    prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])
+                            elif ("spectrogram" or "video") in entry['entry']['name']:
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
 
+                        aspects = entry['entry']['aspectNames']
+                        data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
+                        # update properties request
+                        update = session.put(
+                            os.getenv("ALFRESCO_URL")
+                            + BASE_ENDPOINT
+                            + "/nodes/"
+                            + entry['entry']['id'],
+                            data=json.dumps(data),
+                        )
 
-                    aspects = response_entries["entry"]["aspectNames"]
-
-                    data = {"aspectNames": aspects, "nodeType": 'soundscape:product', "properties": prop_dict}
-
-                    # update properties request
-                    update = session.put(
-                        os.getenv("ALFRESCO_URL")
-                        + BASE_ENDPOINT
-                        + "/nodes/"
-                        + response_entries["entry"]["id"],
-                        data=json.dumps(data),
-                    )
-                    print(update.json())
-                    if update.status_code == 200:
-                        print("Updated " + response_entries["entry"]["id"])
+                        if update.status_code == 200:
+                            print("Updated " + entry['entry']['id'])                    
+                        
         except Exception as e:
             print("Could not add any aspect to this file: ", e)
             
@@ -541,7 +552,7 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: int
 
         metadata = {
             "product_id": product_id,
-            "product_parent": "Null",
+            "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
             "product_spectrum": product_spectrum,
@@ -613,13 +624,11 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: int
                 for pattern in file_patterns
             )
         )
-        print("files_in_dir", files_in_dir)
         filename = "logs/upload_log" + dir_path.replace('/','-') + '.txt'
         
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
         total_files = len(files_in_dir)
-        print(total_files)
         starttime = time.time()
 
         try:
@@ -847,7 +856,7 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
         deployment = sub_audio_df['deployment'].values[0]
-        audio = sub_audio_df.audio[0].cut(0,1)
+        audio = sub_audio_df.audio[0]
         
         colormap = cm.get_cmap(cmap)
         duration = audio.duration
@@ -895,7 +904,7 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
         for c in clips:
             c.close()
 
-    def change_type_sipecam_sc(session, root_folder_id, path, file_type):
+    def change_type_sipecam_sc(session, root_folder_id, path, file_type, node_type):
         if file_type == "sequence.png":
             metadata_name = "soundscape_seq_metadata.json"
             aggr_type = "None"
@@ -913,78 +922,89 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
             semi_path = path.split("soundscapes/")[-1]
             semi_path_file = os.path.join(semi_path, file_type)
             local_path_file_metadata = os.path.join(path, metadata_name)
-            print(f"Changing type for {os.path.join(semi_path_file)}")
+            print(f"Changing type for {os.path.join(semi_path)}")
             alfresco_path = os.path.join("/Company Home/Sites/sipecam-soundscape/documentLibrary/", semi_path)
+
             response = session.get(
                 os.getenv("ALFRESCO_URL")
                 + BASE_ENDPOINT
                 + "/nodes/"
                 + root_folder_id
-                + "/children?relativePath="+semi_path_file+"&include=aspectNames&skipCount=0&maxItems=1"
-            )
-
-            # error flag
-            is_error = False
-
+                + "/children?relativePath="+semi_path+"&include=aspectNames&skipCount=0"
+            )        
             # if request is successful then continue
             if response.status_code == 200:
 
                 data_file = open(local_path_file_metadata)
                 data_json = json.load(data_file)
-                response_entries = response.json()["list"]["entries"][0]
+                response_entries = response.json()["list"]["entries"]
 
-                if response_entries["entry"]["isFile"]:
+                for entry in response_entries:
+                    if entry['entry']['name']==file_type and entry['entry']['isFile']:
+                        prop_dict = {}
+                        
+                        if entry['entry']['name']==file_type:
+                        
+                            if entry['entry']['name'] in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]:
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:aggr"] = str(aggr_type)
+                                prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
+                                prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
+                                prop_dict["soundscape:cycle_config_start_time"] =  datetime.datetime.strptime(data_json["product_configs"]['hasher_config']['kwargs']['start_time'], 
+                                                                                                        "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+                                prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
+                                prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
+                                prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
+                                prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
+                                prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
+                                prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
+                                prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
+                                prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
+                                prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
+                                prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
+                                prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
+                                prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
+                                prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
+                                prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
-                    prop_dict = {}
-                    # map properties
-                    prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
-                    prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
-                    prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
-                    prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
-                    prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
-                    prop_dict["soundscape:aggr"] = str(aggr_type)
-                    prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
-                    prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
-                    prop_dict["soundscape:cycle_config_start_time"] = data_json["product_configs"]['hasher_config']['kwargs']['start_time'] #
-                    prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
-                    prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
-                    prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
-                    prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
-                    prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
-                    prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
-                    prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
-                    prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
-                    prop_dict["soundscape:indices"] = str(data_json['product_configs']['indices'])
-                    prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
-                    prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                    prop_dict["soundscape:product_id"] = str(data_json["product_id"])
-                    prop_dict["soundscape:product_name"] = str(data_json["product_name"])
-                    prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
-                    prop_dict["soundscape:product_path"] = str(alfresco_path)
-                    prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
-                    prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
-                    prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
-                    prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
-                    prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])
+                            elif ("spectrogram" or "video") in entry['entry']['name']:
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
 
+                        aspects = entry['entry']['aspectNames']
+                        data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
+                        # update properties request
+                        update = session.put(
+                            os.getenv("ALFRESCO_URL")
+                            + BASE_ENDPOINT
+                            + "/nodes/"
+                            + entry['entry']['id'],
+                            data=json.dumps(data),
+                        )
 
-                    aspects = response_entries["entry"]["aspectNames"]
-
-                    data = {"aspectNames": aspects, "nodeType": 'soundscape:product', "properties": prop_dict}
-
-                    # update properties request
-                    update = session.put(
-                        os.getenv("ALFRESCO_URL")
-                        + BASE_ENDPOINT
-                        + "/nodes/"
-                        + response_entries["entry"]["id"],
-                        data=json.dumps(data),
-                    )
-                    print(update.json())
-                    if update.status_code == 200:
-                        print("Updated " + response_entries["entry"]["id"])
+                        if update.status_code == 200:
+                            print("Updated " + entry['entry']['id'])                    
+                        
         except Exception as e:
             print("Could not add any aspect to this file: ", e)
             
@@ -1304,7 +1324,7 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
 
         metadata = {
             "product_id": product_id,
-            "product_parent": "Null",
+            "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
             "product_spectrum": product_spectrum,
@@ -1376,13 +1396,11 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
                 for pattern in file_patterns
             )
         )
-        print("files_in_dir", files_in_dir)
         filename = "logs/upload_log" + dir_path.replace('/','-') + '.txt'
         
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
         total_files = len(files_in_dir)
-        print(total_files)
         starttime = time.time()
 
         try:
@@ -1600,7 +1618,7 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
         deployment = sub_audio_df['deployment'].values[0]
-        audio = sub_audio_df.audio[0].cut(0,1)
+        audio = sub_audio_df.audio[0]
         
         colormap = cm.get_cmap(cmap)
         duration = audio.duration
@@ -1648,7 +1666,7 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
         for c in clips:
             c.close()
 
-    def change_type_sipecam_sc(session, root_folder_id, path, file_type):
+    def change_type_sipecam_sc(session, root_folder_id, path, file_type, node_type):
         if file_type == "sequence.png":
             metadata_name = "soundscape_seq_metadata.json"
             aggr_type = "None"
@@ -1666,78 +1684,89 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             semi_path = path.split("soundscapes/")[-1]
             semi_path_file = os.path.join(semi_path, file_type)
             local_path_file_metadata = os.path.join(path, metadata_name)
-            print(f"Changing type for {os.path.join(semi_path_file)}")
+            print(f"Changing type for {os.path.join(semi_path)}")
             alfresco_path = os.path.join("/Company Home/Sites/sipecam-soundscape/documentLibrary/", semi_path)
+
             response = session.get(
                 os.getenv("ALFRESCO_URL")
                 + BASE_ENDPOINT
                 + "/nodes/"
                 + root_folder_id
-                + "/children?relativePath="+semi_path_file+"&include=aspectNames&skipCount=0&maxItems=1"
-            )
-
-            # error flag
-            is_error = False
-
+                + "/children?relativePath="+semi_path+"&include=aspectNames&skipCount=0"
+            )        
             # if request is successful then continue
             if response.status_code == 200:
 
                 data_file = open(local_path_file_metadata)
                 data_json = json.load(data_file)
-                response_entries = response.json()["list"]["entries"][0]
+                response_entries = response.json()["list"]["entries"]
 
-                if response_entries["entry"]["isFile"]:
+                for entry in response_entries:
+                    if entry['entry']['name']==file_type and entry['entry']['isFile']:
+                        prop_dict = {}
+                        
+                        if entry['entry']['name']==file_type:
+                        
+                            if entry['entry']['name'] in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]:
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:aggr"] = str(aggr_type)
+                                prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
+                                prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
+                                prop_dict["soundscape:cycle_config_start_time"] =  datetime.datetime.strptime(data_json["product_configs"]['hasher_config']['kwargs']['start_time'], 
+                                                                                                        "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+                                prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
+                                prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
+                                prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
+                                prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
+                                prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
+                                prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
+                                prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
+                                prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
+                                prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
+                                prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
+                                prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
+                                prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
+                                prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
+                                prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
-                    prop_dict = {}
-                    # map properties
-                    prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
-                    prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
-                    prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
-                    prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
-                    prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
-                    prop_dict["soundscape:aggr"] = str(aggr_type)
-                    prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
-                    prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
-                    prop_dict["soundscape:cycle_config_start_time"] = data_json["product_configs"]['hasher_config']['kwargs']['start_time'] #
-                    prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
-                    prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
-                    prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
-                    prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
-                    prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
-                    prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
-                    prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
-                    prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
-                    prop_dict["soundscape:indices"] = str(data_json['product_configs']['indices'])
-                    prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
-                    prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                    prop_dict["soundscape:product_id"] = str(data_json["product_id"])
-                    prop_dict["soundscape:product_name"] = str(data_json["product_name"])
-                    prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
-                    prop_dict["soundscape:product_path"] = str(alfresco_path)
-                    prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
-                    prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
-                    prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
-                    prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
-                    prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])
+                            elif ("spectrogram" or "video") in entry['entry']['name']:
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
 
+                        aspects = entry['entry']['aspectNames']
+                        data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
+                        # update properties request
+                        update = session.put(
+                            os.getenv("ALFRESCO_URL")
+                            + BASE_ENDPOINT
+                            + "/nodes/"
+                            + entry['entry']['id'],
+                            data=json.dumps(data),
+                        )
 
-                    aspects = response_entries["entry"]["aspectNames"]
-
-                    data = {"aspectNames": aspects, "nodeType": 'soundscape:product', "properties": prop_dict}
-
-                    # update properties request
-                    update = session.put(
-                        os.getenv("ALFRESCO_URL")
-                        + BASE_ENDPOINT
-                        + "/nodes/"
-                        + response_entries["entry"]["id"],
-                        data=json.dumps(data),
-                    )
-                    print(update.json())
-                    if update.status_code == 200:
-                        print("Updated " + response_entries["entry"]["id"])
+                        if update.status_code == 200:
+                            print("Updated " + entry['entry']['id'])                    
+                        
         except Exception as e:
             print("Could not add any aspect to this file: ", e)
             
@@ -2057,7 +2086,7 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
 
         metadata = {
             "product_id": product_id,
-            "product_parent": "Null",
+            "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
             "product_spectrum": product_spectrum,
@@ -2129,13 +2158,11 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
                 for pattern in file_patterns
             )
         )
-        print("files_in_dir", files_in_dir)
         filename = "logs/upload_log" + dir_path.replace('/','-') + '.txt'
         
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
         total_files = len(files_in_dir)
-        print(total_files)
         starttime = time.time()
 
         try:
@@ -2422,7 +2449,7 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
         deployment = sub_audio_df['deployment'].values[0]
-        audio = sub_audio_df.audio[0].cut(0,1)
+        audio = sub_audio_df.audio[0]
         
         colormap = cm.get_cmap(cmap)
         duration = audio.duration
@@ -2470,7 +2497,7 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
         for c in clips:
             c.close()
 
-    def change_type_sipecam_sc(session, root_folder_id, path, file_type):
+    def change_type_sipecam_sc(session, root_folder_id, path, file_type, node_type):
         if file_type == "sequence.png":
             metadata_name = "soundscape_seq_metadata.json"
             aggr_type = "None"
@@ -2488,78 +2515,89 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
             semi_path = path.split("soundscapes/")[-1]
             semi_path_file = os.path.join(semi_path, file_type)
             local_path_file_metadata = os.path.join(path, metadata_name)
-            print(f"Changing type for {os.path.join(semi_path_file)}")
+            print(f"Changing type for {os.path.join(semi_path)}")
             alfresco_path = os.path.join("/Company Home/Sites/sipecam-soundscape/documentLibrary/", semi_path)
+
             response = session.get(
                 os.getenv("ALFRESCO_URL")
                 + BASE_ENDPOINT
                 + "/nodes/"
                 + root_folder_id
-                + "/children?relativePath="+semi_path_file+"&include=aspectNames&skipCount=0&maxItems=1"
-            )
-
-            # error flag
-            is_error = False
-
+                + "/children?relativePath="+semi_path+"&include=aspectNames&skipCount=0"
+            )        
             # if request is successful then continue
             if response.status_code == 200:
 
                 data_file = open(local_path_file_metadata)
                 data_json = json.load(data_file)
-                response_entries = response.json()["list"]["entries"][0]
+                response_entries = response.json()["list"]["entries"]
 
-                if response_entries["entry"]["isFile"]:
+                for entry in response_entries:
+                    if entry['entry']['name']==file_type and entry['entry']['isFile']:
+                        prop_dict = {}
+                        
+                        if entry['entry']['name']==file_type:
+                        
+                            if entry['entry']['name'] in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]:
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:aggr"] = str(aggr_type)
+                                prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
+                                prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
+                                prop_dict["soundscape:cycle_config_start_time"] =  datetime.datetime.strptime(data_json["product_configs"]['hasher_config']['kwargs']['start_time'], 
+                                                                                                        "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+                                prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
+                                prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
+                                prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
+                                prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
+                                prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
+                                prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
+                                prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
+                                prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
+                                prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
+                                prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
+                                prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
+                                prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
+                                prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
+                                prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
-                    prop_dict = {}
-                    # map properties
-                    prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
-                    prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
-                    prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
-                    prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
-                    prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
-                    prop_dict["soundscape:aggr"] = str(aggr_type)
-                    prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
-                    prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
-                    prop_dict["soundscape:cycle_config_start_time"] = data_json["product_configs"]['hasher_config']['kwargs']['start_time'] #
-                    prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
-                    prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
-                    prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
-                    prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
-                    prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
-                    prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
-                    prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
-                    prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
-                    prop_dict["soundscape:indices"] = str(data_json['product_configs']['indices'])
-                    prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
-                    prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                    prop_dict["soundscape:product_id"] = str(data_json["product_id"])
-                    prop_dict["soundscape:product_name"] = str(data_json["product_name"])
-                    prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
-                    prop_dict["soundscape:product_path"] = str(alfresco_path)
-                    prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
-                    prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
-                    prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
-                    prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
-                    prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])
+                            elif ("spectrogram" or "video") in entry['entry']['name']:
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
 
+                        aspects = entry['entry']['aspectNames']
+                        data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
+                        # update properties request
+                        update = session.put(
+                            os.getenv("ALFRESCO_URL")
+                            + BASE_ENDPOINT
+                            + "/nodes/"
+                            + entry['entry']['id'],
+                            data=json.dumps(data),
+                        )
 
-                    aspects = response_entries["entry"]["aspectNames"]
-
-                    data = {"aspectNames": aspects, "nodeType": 'soundscape:product', "properties": prop_dict}
-
-                    # update properties request
-                    update = session.put(
-                        os.getenv("ALFRESCO_URL")
-                        + BASE_ENDPOINT
-                        + "/nodes/"
-                        + response_entries["entry"]["id"],
-                        data=json.dumps(data),
-                    )
-                    print(update.json())
-                    if update.status_code == 200:
-                        print("Updated " + response_entries["entry"]["id"])
+                        if update.status_code == 200:
+                            print("Updated " + entry['entry']['id'])                    
+                        
         except Exception as e:
             print("Could not add any aspect to this file: ", e)
             
@@ -2879,7 +2917,7 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
 
         metadata = {
             "product_id": product_id,
-            "product_parent": "Null",
+            "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
             "product_spectrum": product_spectrum,
@@ -2951,13 +2989,11 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
                 for pattern in file_patterns
             )
         )
-        print("files_in_dir", files_in_dir)
         filename = "logs/upload_log" + dir_path.replace('/','-') + '.txt'
         
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
         total_files = len(files_in_dir)
-        print(total_files)
         starttime = time.time()
 
         try:
@@ -3054,9 +3090,12 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
         idx_audio = 1
         for id_audio in ids_audios:
             print(f"Processing audio {id_audio}")
-            plot_spectrogram(id_audio, f"spl{idx_audio}", recs, sc_path, SPECTRUM, CUMULO)   
-            audio2video(id_audio, f"spl{idx_audio}", recs, sc_path, SPECTRUM, CUMULO)
-            idx_audio += 1
+            try:
+                plot_spectrogram(id_audio, f"spl{idx_audio}", recs, sc_path, SPECTRUM, CUMULO)   
+                audio2video(id_audio, f"spl{idx_audio}", recs, sc_path, SPECTRUM, CUMULO)
+                idx_audio += 1
+            except:
+                pass
     '''
 
     _kale_data_saving_block = '''
@@ -3159,7 +3198,7 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
         deployment = sub_audio_df['deployment'].values[0]
-        audio = sub_audio_df.audio[0].cut(0,1)
+        audio = sub_audio_df.audio[0]
         
         colormap = cm.get_cmap(cmap)
         duration = audio.duration
@@ -3207,7 +3246,7 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
         for c in clips:
             c.close()
 
-    def change_type_sipecam_sc(session, root_folder_id, path, file_type):
+    def change_type_sipecam_sc(session, root_folder_id, path, file_type, node_type):
         if file_type == "sequence.png":
             metadata_name = "soundscape_seq_metadata.json"
             aggr_type = "None"
@@ -3225,78 +3264,89 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
             semi_path = path.split("soundscapes/")[-1]
             semi_path_file = os.path.join(semi_path, file_type)
             local_path_file_metadata = os.path.join(path, metadata_name)
-            print(f"Changing type for {os.path.join(semi_path_file)}")
+            print(f"Changing type for {os.path.join(semi_path)}")
             alfresco_path = os.path.join("/Company Home/Sites/sipecam-soundscape/documentLibrary/", semi_path)
+
             response = session.get(
                 os.getenv("ALFRESCO_URL")
                 + BASE_ENDPOINT
                 + "/nodes/"
                 + root_folder_id
-                + "/children?relativePath="+semi_path_file+"&include=aspectNames&skipCount=0&maxItems=1"
-            )
-
-            # error flag
-            is_error = False
-
+                + "/children?relativePath="+semi_path+"&include=aspectNames&skipCount=0"
+            )        
             # if request is successful then continue
             if response.status_code == 200:
 
                 data_file = open(local_path_file_metadata)
                 data_json = json.load(data_file)
-                response_entries = response.json()["list"]["entries"][0]
+                response_entries = response.json()["list"]["entries"]
 
-                if response_entries["entry"]["isFile"]:
+                for entry in response_entries:
+                    if entry['entry']['name']==file_type and entry['entry']['isFile']:
+                        prop_dict = {}
+                        
+                        if entry['entry']['name']==file_type:
+                        
+                            if entry['entry']['name'] in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]:
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:aggr"] = str(aggr_type)
+                                prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
+                                prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
+                                prop_dict["soundscape:cycle_config_start_time"] =  datetime.datetime.strptime(data_json["product_configs"]['hasher_config']['kwargs']['start_time'], 
+                                                                                                        "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+                                prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
+                                prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
+                                prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
+                                prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
+                                prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
+                                prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
+                                prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
+                                prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
+                                prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
+                                prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
+                                prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
+                                prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
+                                prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
+                                prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
-                    prop_dict = {}
-                    # map properties
-                    prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
-                    prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
-                    prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
-                    prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
-                    prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
-                    prop_dict["soundscape:aggr"] = str(aggr_type)
-                    prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
-                    prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
-                    prop_dict["soundscape:cycle_config_start_time"] = data_json["product_configs"]['hasher_config']['kwargs']['start_time'] #
-                    prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
-                    prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
-                    prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
-                    prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
-                    prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
-                    prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
-                    prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
-                    prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
-                    prop_dict["soundscape:indices"] = str(data_json['product_configs']['indices'])
-                    prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
-                    prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                    prop_dict["soundscape:product_id"] = str(data_json["product_id"])
-                    prop_dict["soundscape:product_name"] = str(data_json["product_name"])
-                    prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
-                    prop_dict["soundscape:product_path"] = str(alfresco_path)
-                    prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
-                    prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
-                    prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
-                    prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
-                    prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])
+                            elif ("spectrogram" or "video") in entry['entry']['name']:
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
 
+                        aspects = entry['entry']['aspectNames']
+                        data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
+                        # update properties request
+                        update = session.put(
+                            os.getenv("ALFRESCO_URL")
+                            + BASE_ENDPOINT
+                            + "/nodes/"
+                            + entry['entry']['id'],
+                            data=json.dumps(data),
+                        )
 
-                    aspects = response_entries["entry"]["aspectNames"]
-
-                    data = {"aspectNames": aspects, "nodeType": 'soundscape:product', "properties": prop_dict}
-
-                    # update properties request
-                    update = session.put(
-                        os.getenv("ALFRESCO_URL")
-                        + BASE_ENDPOINT
-                        + "/nodes/"
-                        + response_entries["entry"]["id"],
-                        data=json.dumps(data),
-                    )
-                    print(update.json())
-                    if update.status_code == 200:
-                        print("Updated " + response_entries["entry"]["id"])
+                        if update.status_code == 200:
+                            print("Updated " + entry['entry']['id'])                    
+                        
         except Exception as e:
             print("Could not add any aspect to this file: ", e)
             
@@ -3616,7 +3666,7 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
 
         metadata = {
             "product_id": product_id,
-            "product_parent": "Null",
+            "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
             "product_spectrum": product_spectrum,
@@ -3688,13 +3738,11 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
                 for pattern in file_patterns
             )
         )
-        print("files_in_dir", files_in_dir)
         filename = "logs/upload_log" + dir_path.replace('/','-') + '.txt'
         
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
         total_files = len(files_in_dir)
-        print(total_files)
         starttime = time.time()
 
         try:
@@ -3885,7 +3933,7 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
         deployment = sub_audio_df['deployment'].values[0]
-        audio = sub_audio_df.audio[0].cut(0,1)
+        audio = sub_audio_df.audio[0]
         
         colormap = cm.get_cmap(cmap)
         duration = audio.duration
@@ -3933,7 +3981,7 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
         for c in clips:
             c.close()
 
-    def change_type_sipecam_sc(session, root_folder_id, path, file_type):
+    def change_type_sipecam_sc(session, root_folder_id, path, file_type, node_type):
         if file_type == "sequence.png":
             metadata_name = "soundscape_seq_metadata.json"
             aggr_type = "None"
@@ -3951,78 +3999,89 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
             semi_path = path.split("soundscapes/")[-1]
             semi_path_file = os.path.join(semi_path, file_type)
             local_path_file_metadata = os.path.join(path, metadata_name)
-            print(f"Changing type for {os.path.join(semi_path_file)}")
+            print(f"Changing type for {os.path.join(semi_path)}")
             alfresco_path = os.path.join("/Company Home/Sites/sipecam-soundscape/documentLibrary/", semi_path)
+
             response = session.get(
                 os.getenv("ALFRESCO_URL")
                 + BASE_ENDPOINT
                 + "/nodes/"
                 + root_folder_id
-                + "/children?relativePath="+semi_path_file+"&include=aspectNames&skipCount=0&maxItems=1"
-            )
-
-            # error flag
-            is_error = False
-
+                + "/children?relativePath="+semi_path+"&include=aspectNames&skipCount=0"
+            )        
             # if request is successful then continue
             if response.status_code == 200:
 
                 data_file = open(local_path_file_metadata)
                 data_json = json.load(data_file)
-                response_entries = response.json()["list"]["entries"][0]
+                response_entries = response.json()["list"]["entries"]
 
-                if response_entries["entry"]["isFile"]:
+                for entry in response_entries:
+                    if entry['entry']['name']==file_type and entry['entry']['isFile']:
+                        prop_dict = {}
+                        
+                        if entry['entry']['name']==file_type:
+                        
+                            if entry['entry']['name'] in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]:
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:aggr"] = str(aggr_type)
+                                prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
+                                prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
+                                prop_dict["soundscape:cycle_config_start_time"] =  datetime.datetime.strptime(data_json["product_configs"]['hasher_config']['kwargs']['start_time'], 
+                                                                                                        "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+                                prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
+                                prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
+                                prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
+                                prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
+                                prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
+                                prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
+                                prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
+                                prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
+                                prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
+                                prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
+                                prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
+                                prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
+                                prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
+                                prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
+                                prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
-                    prop_dict = {}
-                    # map properties
-                    prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
-                    prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
-                    prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
-                    prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
-                    prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
-                    prop_dict["soundscape:aggr"] = str(aggr_type)
-                    prop_dict["soundscape:cycle_config_aware_start"] = str(data_json["product_configs"]['hasher_config']['kwargs']['aware_start'])
-                    prop_dict["soundscape:cycle_config_start_format"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_format'])
-                    prop_dict["soundscape:cycle_config_start_time"] = data_json["product_configs"]['hasher_config']['kwargs']['start_time'] #
-                    prop_dict["soundscape:cycle_config_start_tzone"] = str(data_json["product_configs"]['hasher_config']['kwargs']['start_tzone'])
-                    prop_dict["soundscape:cycle_config_time_module"] = int(data_json["product_configs"]['hasher_config']['kwargs']['time_module'])
-                    prop_dict["soundscape:cycle_config_time_unit"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_unit'])
-                    prop_dict["soundscape:cycle_config_time_utc_column"] = str(data_json["product_configs"]['hasher_config']['kwargs']['time_utc_column'])
-                    prop_dict["soundscape:frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:frequency_hop"] = int(data_json["product_configs"]["slice_config"]["frequency_hop"])
-                    prop_dict["soundscape:frequency_limits"] = str(data_json["product_configs"]["slice_config"]["frequency_limits"])
-                    prop_dict["soundscape:hash_name"] = str(data_json["product_configs"]["hash_name"])
-                    prop_dict["soundscape:hop_length"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["hop_length"])
-                    prop_dict["soundscape:indices"] = str(data_json['product_configs']['indices'])
-                    prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
-                    prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                    prop_dict["soundscape:product_id"] = str(data_json["product_id"])
-                    prop_dict["soundscape:product_name"] = str(data_json["product_name"])
-                    prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
-                    prop_dict["soundscape:product_path"] = str(alfresco_path)
-                    prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
-                    prop_dict["soundscape:slice_config_feature_type"] = str(data_json["product_configs"]["slice_config"]["feature_type"])
-                    prop_dict["soundscape:slice_config_frequency_bins"] = int(data_json["product_configs"]["slice_config"]["frequency_bins"])
-                    prop_dict["soundscape:slice_config_time_unit"] = int(data_json["product_configs"]["slice_config"]["time_unit"])
-                    prop_dict["soundscape:time_hop"] = int(data_json["product_configs"]["slice_config"]["time_hop"])
-                    prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])
+                            elif ("spectrogram" or "video") in entry['entry']['name']:
+                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
+                                prop_dict["soundscape:product_name"] = str(data_json["product_name"])
+                                prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
+                                prop_dict["soundscape:product_path"] = str(alfresco_path)
+                                prop_dict["soundscape:product_spectrum"] = str(data_json["product_spectrum"])
+                                prop_dict["soundscape:CumulusName"] = str(data_json["CumulusName"])
+                                prop_dict["soundscape:NodeCategoryIntegrity"] = str(data_json["NodeCategoryIntegrity"])
+                                prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
+                                prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
+                                prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
 
+                        aspects = entry['entry']['aspectNames']
+                        data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
+                        # update properties request
+                        update = session.put(
+                            os.getenv("ALFRESCO_URL")
+                            + BASE_ENDPOINT
+                            + "/nodes/"
+                            + entry['entry']['id'],
+                            data=json.dumps(data),
+                        )
 
-                    aspects = response_entries["entry"]["aspectNames"]
-
-                    data = {"aspectNames": aspects, "nodeType": 'soundscape:product', "properties": prop_dict}
-
-                    # update properties request
-                    update = session.put(
-                        os.getenv("ALFRESCO_URL")
-                        + BASE_ENDPOINT
-                        + "/nodes/"
-                        + response_entries["entry"]["id"],
-                        data=json.dumps(data),
-                    )
-                    print(update.json())
-                    if update.status_code == 200:
-                        print("Updated " + response_entries["entry"]["id"])
+                        if update.status_code == 200:
+                            print("Updated " + entry['entry']['id'])                    
+                        
         except Exception as e:
             print("Could not add any aspect to this file: ", e)
             
@@ -4342,7 +4401,7 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
 
         metadata = {
             "product_id": product_id,
-            "product_parent": "Null",
+            "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
             "product_spectrum": product_spectrum,
@@ -4414,13 +4473,11 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
                 for pattern in file_patterns
             )
         )
-        print("files_in_dir", files_in_dir)
         filename = "logs/upload_log" + dir_path.replace('/','-') + '.txt'
         
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
         total_files = len(files_in_dir)
-        print(total_files)
         starttime = time.time()
 
         try:
@@ -4510,7 +4567,7 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
     session = login()
     for sc_path in sub_folder_results:
         for file_type in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]:
-            change_type_sipecam_sc(session, ALFRESCO_NODE_ID, sc_path, file_type)
+            change_type_sipecam_sc(session, ALFRESCO_NODE_ID, sc_path, file_type, 'soundscape:product')
     '''
 
     # run the code blocks inside a jupyter kernel
@@ -4555,10 +4612,10 @@ _kale_upload_alfresco_model_data_op = _kfp_components.func_to_container_op(
 
 
 @_kfp_dsl.pipeline(
-    name='sound-scape-nod-rec-dep-r5k3p',
+    name='sound-scape-nod-rec-dep-8i0ol',
     description='Computes Sipecam Soundscapes using cumulus, node, recorder and deployment'
 )
-def auto_generated_pipeline(ALFRESCO_NODE_ID='cf3a1b97-965d-489f-bfdf-5c8e26c4ac95', AUTH_ENDPOINT='alfresco/api/-default-/public/authentication/versions/1', BASE_ENDPOINT='alfresco/api/-default-/public/alfresco/versions/1', BLUE_IDX='CORE', CUMULO='92', FREQUENCY_BINS='96', FREQUENCY_LIMITS_LB='0', FREQUENCY_LIMITS_UB='24000', GREEN_IDX='INFORMATION', HASHER_TIME_MODULE='48', HASHER_TIME_UNIT='1800', HASH_NAME='crono_hash_30m', LIMIT='10', MIN_FREQ_SC='10000', PAGESIZE='1000', RED_IDX='EXAG', RESULTS_DIR='/shared_volume/audio/soundscapes', SAMPLERATE='48000.0', SPECTRUM='Audible', THREADS_PER_WORKER='2', TIME_UNIT='30', WORK_DIR_PIPELINE='.', vol_shared_volume='hostpath-pvc'):
+def auto_generated_pipeline(ALFRESCO_NODE_ID='cf3a1b97-965d-489f-bfdf-5c8e26c4ac95', AUTH_ENDPOINT='alfresco/api/-default-/public/authentication/versions/1', BASE_ENDPOINT='alfresco/api/-default-/public/alfresco/versions/1', BLUE_IDX='CORE', CUMULO='92', FREQUENCY_BINS='96', FREQUENCY_LIMITS_LB='0', FREQUENCY_LIMITS_UB='24000', GREEN_IDX='INFORMATION', HASHER_TIME_MODULE='48', HASHER_TIME_UNIT='1800', HASH_NAME='crono_hash_30m', LIMIT='False', MIN_FREQ_SC='10000', PAGESIZE='1000', RED_IDX='EXAG', RESULTS_DIR='/shared_volume/audio/soundscapes', SAMPLERATE='48000.0', SPECTRUM='Audible', THREADS_PER_WORKER='2', TIME_UNIT='30', WORK_DIR_PIPELINE='.', vol_shared_volume='hostpath-pvc'):
     _kale_pvolumes_dict = OrderedDict()
     _kale_volume_step_names = []
     _kale_volume_name_parameters = []
@@ -4732,7 +4789,7 @@ if __name__ == "__main__":
     pipeline_parameters = {"CUMULO": 92,
                            "SAMPLERATE": 48000.0,
                            "PAGESIZE": 1000,
-                           "LIMIT" : False,
+                           "LIMIT": False,
                            "RED_IDX": "EXAG",
                            "GREEN_IDX": "INFORMATION",
                            "BLUE_IDX": "CORE",
@@ -4745,12 +4802,12 @@ if __name__ == "__main__":
                            "FREQUENCY_LIMITS_UB": 24000,
                            "HASHER_TIME_UNIT": 1800,
                            "HASHER_TIME_MODULE": 48,
-                           "HASH_NAME" : "crono_hash_30m",
+                           "HASH_NAME": "crono_hash_30m",
                            "THREADS_PER_WORKER": 2,
                            "RESULTS_DIR": '/shared_volume/audio/soundscapes',
-                           "ALFRESCO_NODE_ID" : "cf3a1b97-965d-489f-bfdf-5c8e26c4ac95",
-                           "BASE_ENDPOINT" : "alfresco/api/-default-/public/alfresco/versions/1",
-                           "AUTH_ENDPOINT" : "alfresco/api/-default-/public/authentication/versions/1"}
+                           "ALFRESCO_NODE_ID": "cf3a1b97-965d-489f-bfdf-5c8e26c4ac95",
+                           "BASE_ENDPOINT": "alfresco/api/-default-/public/alfresco/versions/1",
+                           "AUTH_ENDPOINT": "alfresco/api/-default-/public/authentication/versions/1"}
     run_result = client.run_pipeline(
         experiment.id, run_name, pipeline_filename, pipeline_parameters)
     import time

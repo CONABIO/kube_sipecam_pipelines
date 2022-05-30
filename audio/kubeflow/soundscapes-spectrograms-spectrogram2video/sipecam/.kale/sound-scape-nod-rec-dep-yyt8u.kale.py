@@ -3852,6 +3852,7 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
 
     _kale_block3 = '''
     FILE_PATTERNS = [".mp4", ".png"] #".parquet"
+    load_dotenv()
     session = login()
     upload_files(FILE_PATTERNS, session, ALFRESCO_NODE_ID, RESULTS_DIR, recursive= True, file_identifier="")
     '''
@@ -4589,6 +4590,7 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
     '''
 
     _kale_block3 = '''
+    load_dotenv()
     session = login()
     for sc_path in sub_folder_results:
         for file in os.listdir(sc_path):
@@ -4639,10 +4641,10 @@ _kale_upload_alfresco_model_data_op = _kfp_components.func_to_container_op(
 
 
 @_kfp_dsl.pipeline(
-    name='sound-scape-nod-rec-dep-ms8gj',
+    name='sound-scape-nod-rec-dep-yyt8u',
     description='Computes Sipecam Soundscapes using cumulus, node, recorder and deployment'
 )
-def auto_generated_pipeline(ALFRESCO_NODE_ID='cf3a1b97-965d-489f-bfdf-5c8e26c4ac95', AUTH_ENDPOINT='alfresco/api/-default-/public/authentication/versions/1', BASE_ENDPOINT='alfresco/api/-default-/public/alfresco/versions/1', BLUE_IDX='CORE', CUMULO='92', FREQUENCY_BINS='96', FREQUENCY_LIMITS_LB='0', FREQUENCY_LIMITS_UB='24000', GREEN_IDX='INFORMATION', HASHER_TIME_MODULE='48', HASHER_TIME_UNIT='1800', HASH_NAME='crono_hash_30m', LIMIT='False', MIN_FREQ_SC='10000', PAGESIZE='1000', RED_IDX='EXAG', RESULTS_DIR='/shared_volume/audio/soundscapes', SAMPLERATE='48000.0', SPECTRUM='Audible', THREADS_PER_WORKER='2', TIME_UNIT='30', WORK_DIR_PIPELINE='.', vol_shared_volume='hostpath-pvc'):
+def auto_generated_pipeline(ALFRESCO_NODE_ID='cf3a1b97-965d-489f-bfdf-5c8e26c4ac95', AUTH_ENDPOINT='alfresco/api/-default-/public/authentication/versions/1', BASE_ENDPOINT='alfresco/api/-default-/public/alfresco/versions/1', BLUE_IDX='CORE', CUMULO='95', FREQUENCY_BINS='96', FREQUENCY_LIMITS_LB='0', FREQUENCY_LIMITS_UB='24000', GREEN_IDX='INFORMATION', HASHER_TIME_MODULE='48', HASHER_TIME_UNIT='1800', HASH_NAME='crono_hash_30m', LIMIT='False', MIN_FREQ_SC='10000', PAGESIZE='1000', RED_IDX='EXAG', RESULTS_DIR='/shared_volume/audio/soundscapes', SAMPLERATE='48000.0', SPECTRUM='Audible', THREADS_PER_WORKER='2', TIME_UNIT='30', WORK_DIR_PIPELINE='.', vol_shared_volume='hostpath-pvc'):
     _kale_pvolumes_dict = OrderedDict()
     _kale_volume_step_names = []
     _kale_volume_name_parameters = []
@@ -4812,79 +4814,6 @@ if __name__ == "__main__":
 
     # Submit a pipeline run
     from kale.common.kfputils import generate_run_name
-    run_name = generate_run_name('sound-scape-nod-rec-dep-tons1')
-    pipeline_parameters = {"CUMULO": 92,
-                           "SAMPLERATE": 48000.0,
-                           "PAGESIZE": 1000,
-                           "LIMIT": None,
-                           "RED_IDX": "EXAG",
-                           "GREEN_IDX": "INFORMATION",
-                           "BLUE_IDX": "CORE",
-                           "MIN_FREQ_SC": 10000,
-                           "WORK_DIR_PIPELINE": ".",
-                           "SPECTRUM": "Audible",
-                           "TIME_UNIT": 30,
-                           "FREQUENCY_BINS": 96,
-                           "FREQUENCY_LIMITS_LB": 0,
-                           "FREQUENCY_LIMITS_UB": 24000,
-                           "HASHER_TIME_UNIT": 1800,
-                           "HASHER_TIME_MODULE": 48,
-                           "HASH_NAME": "crono_hash_30m",
-                           "THREADS_PER_WORKER": 2,
-                           "RESULTS_DIR": '/shared_volume/audio/soundscapes',
-                           "ALFRESCO_NODE_ID": "cf3a1b97-965d-489f-bfdf-5c8e26c4ac95",
-                           "BASE_ENDPOINT": "alfresco/api/-default-/public/alfresco/versions/1",
-                           "AUTH_ENDPOINT": "alfresco/api/-default-/public/authentication/versions/1"}
+    run_name = generate_run_name('sound-scape-nod-rec-dep-yyt8u')
     run_result = client.run_pipeline(
-        experiment.id, run_name, pipeline_filename, pipeline_parameters)
-    import time
-    time.sleep(180)
-    pipeline_parameters = {"CUMULO": 95,
-                           "SAMPLERATE": 48000.0,
-                           "PAGESIZE": 1000,
-                           "LIMIT": None,
-                           "RED_IDX": "EXAG",
-                           "GREEN_IDX": "INFORMATION",
-                           "BLUE_IDX": "CORE",
-                           "MIN_FREQ_SC": 10000,
-                           "WORK_DIR_PIPELINE": ".",
-                           "SPECTRUM": "Audible",
-                           "TIME_UNIT": 30,
-                           "FREQUENCY_BINS": 96,
-                           "FREQUENCY_LIMITS_LB": 0,
-                           "FREQUENCY_LIMITS_UB": 24000,
-                           "HASHER_TIME_UNIT": 1800,
-                           "HASHER_TIME_MODULE": 48,
-                           "HASH_NAME": "crono_hash_30m",
-                           "THREADS_PER_WORKER": 2,
-                           "RESULTS_DIR": '/shared_volume/audio/soundscapes',
-                           "ALFRESCO_NODE_ID": "cf3a1b97-965d-489f-bfdf-5c8e26c4ac95",
-                           "BASE_ENDPOINT": "alfresco/api/-default-/public/alfresco/versions/1",
-                           "AUTH_ENDPOINT": "alfresco/api/-default-/public/authentication/versions/1"}
-    run_result = client.run_pipeline(
-        experiment.id, run_name, pipeline_filename, pipeline_parameters)
-    time.sleep(180)
-    pipeline_parameters = {"CUMULO": 32,
-                           "SAMPLERATE": 48000.0,
-                           "PAGESIZE": 1000,
-                           "LIMIT": None,
-                           "RED_IDX": "EXAG",
-                           "GREEN_IDX": "INFORMATION",
-                           "BLUE_IDX": "CORE",
-                           "MIN_FREQ_SC": 10000,
-                           "WORK_DIR_PIPELINE": ".",
-                           "SPECTRUM": "Audible",
-                           "TIME_UNIT": 30,
-                           "FREQUENCY_BINS": 96,
-                           "FREQUENCY_LIMITS_LB": 0,
-                           "FREQUENCY_LIMITS_UB": 24000,
-                           "HASHER_TIME_UNIT": 1800,
-                           "HASHER_TIME_MODULE": 48,
-                           "HASH_NAME": "crono_hash_30m",
-                           "THREADS_PER_WORKER": 2,
-                           "RESULTS_DIR": '/shared_volume/audio/soundscapes',
-                           "ALFRESCO_NODE_ID": "cf3a1b97-965d-489f-bfdf-5c8e26c4ac95",
-                           "BASE_ENDPOINT": "alfresco/api/-default-/public/alfresco/versions/1",
-                           "AUTH_ENDPOINT": "alfresco/api/-default-/public/authentication/versions/1"}
-    run_result = client.run_pipeline(
-        experiment.id, run_name, pipeline_filename, pipeline_parameters)
+        experiment.id, run_name, pipeline_filename, {})

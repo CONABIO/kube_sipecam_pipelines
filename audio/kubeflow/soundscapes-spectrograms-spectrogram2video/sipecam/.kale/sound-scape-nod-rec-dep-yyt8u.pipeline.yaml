@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: sound-scape-nod-rec-dep-ms8gj-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.11, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-28T13:13:54.553710',
+  generateName: sound-scape-nod-rec-dep-yyt8u-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.11, pipelines.kubeflow.org/pipeline_compilation_time: '2022-05-29T22:00:49.612281',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "Computes Sipecam Soundscapes
       using cumulus, node, recorder and deployment", "inputs": [{"default": "cf3a1b97-965d-489f-bfdf-5c8e26c4ac95",
       "name": "ALFRESCO_NODE_ID", "optional": true}, {"default": "alfresco/api/-default-/public/authentication/versions/1",
       "name": "AUTH_ENDPOINT", "optional": true}, {"default": "alfresco/api/-default-/public/alfresco/versions/1",
       "name": "BASE_ENDPOINT", "optional": true}, {"default": "CORE", "name": "BLUE_IDX",
-      "optional": true}, {"default": "92", "name": "CUMULO", "optional": true}, {"default":
+      "optional": true}, {"default": "95", "name": "CUMULO", "optional": true}, {"default":
       "96", "name": "FREQUENCY_BINS", "optional": true}, {"default": "0", "name":
       "FREQUENCY_LIMITS_LB", "optional": true}, {"default": "24000", "name": "FREQUENCY_LIMITS_UB",
       "optional": true}, {"default": "INFORMATION", "name": "GREEN_IDX", "optional":
@@ -23,10 +23,10 @@ metadata:
       {"default": "2", "name": "THREADS_PER_WORKER", "optional": true}, {"default":
       "30", "name": "TIME_UNIT", "optional": true}, {"default": ".", "name": "WORK_DIR_PIPELINE",
       "optional": true}, {"default": "hostpath-pvc", "name": "vol_shared_volume",
-      "optional": true}], "name": "sound-scape-nod-rec-dep-ms8gj"}'}
+      "optional": true}], "name": "sound-scape-nod-rec-dep-yyt8u"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.8.11}
 spec:
-  entrypoint: sound-scape-nod-rec-dep-ms8gj
+  entrypoint: sound-scape-nod-rec-dep-yyt8u
   templates:
   - name: compute-soundscapes
     container:
@@ -2964,7 +2964,7 @@ spec:
     volumes:
     - name: pvolume-ef6fe65091618f865041935b363277953274adf6b420fd4a7b8277d
       persistentVolumeClaim: {claimName: '{{inputs.parameters.vol_shared_volume}}'}
-  - name: sound-scape-nod-rec-dep-ms8gj
+  - name: sound-scape-nod-rec-dep-yyt8u
     inputs:
       parameters:
       - {name: ALFRESCO_NODE_ID}
@@ -4444,26 +4444,27 @@ spec:
         \ frequency\\'\\'\\'\n        return (df\n                .groupby(by=[\"\
         id\", hash_name, \"start_time\", \"end_time\"])\n                .apply(get_vectors,\
         \ indices)\n                .reset_index()\n                .rename(columns={0:\"\
-        index_vector\"}))\n    '''\n\n    _kale_block3 = '''\n    session = login()\n\
-        \    for sc_path in sub_folder_results:\n        for file in os.listdir(sc_path):\n\
-        \            if file.split(\".\")[-1] in [\"png\", \"mp4\"]:\n           \
-        \     print(file)\n                change_type_sipecam_sc(session, ALFRESCO_NODE_ID,\
-        \ sc_path, file, 'soundscape:product')\n    '''\n\n    # run the code blocks\
-        \ inside a jupyter kernel\n    from kale.common.jputils import run_code as\
-        \ _kale_run_code\n    from kale.common.kfputils import \\\n        update_uimetadata\
-        \ as _kale_update_uimetadata\n    _kale_blocks = (_kale_pipeline_parameters_block,\
-        \ _kale_data_loading_block,\n                    _kale_block1,\n         \
-        \           _kale_block2,\n                    _kale_block3,\n           \
-        \         )\n    _kale_html_artifact = _kale_run_code(_kale_blocks)\n    with\
-        \ open(\"/upload_alfresco_model_data.html\", \"w\") as f:\n        f.write(_kale_html_artifact)\n\
-        \    _kale_update_uimetadata('upload_alfresco_model_data')\n\n    _kale_mlmdutils.call(\"\
-        mark_execution_complete\")\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Upload\
-        \ alfresco model data', description='')\n_parser.add_argument(\"--ALFRESCO-NODE-ID\"\
-        , dest=\"ALFRESCO_NODE_ID\", type=str, required=True, default=argparse.SUPPRESS)\n\
-        _parser.add_argument(\"--AUTH-ENDPOINT\", dest=\"AUTH_ENDPOINT\", type=str,\
-        \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--BASE-ENDPOINT\"\
-        , dest=\"BASE_ENDPOINT\", type=str, required=True, default=argparse.SUPPRESS)\n\
-        _parsed_args = vars(_parser.parse_args())\n\n_outputs = upload_alfresco_model_data(**_parsed_args)\n"
+        index_vector\"}))\n    '''\n\n    _kale_block3 = '''\n    load_dotenv()\n\
+        \    session = login()\n    for sc_path in sub_folder_results:\n        for\
+        \ file in os.listdir(sc_path):\n            if file.split(\".\")[-1] in [\"\
+        png\", \"mp4\"]:\n                print(file)\n                change_type_sipecam_sc(session,\
+        \ ALFRESCO_NODE_ID, sc_path, file, 'soundscape:product')\n    '''\n\n    #\
+        \ run the code blocks inside a jupyter kernel\n    from kale.common.jputils\
+        \ import run_code as _kale_run_code\n    from kale.common.kfputils import\
+        \ \\\n        update_uimetadata as _kale_update_uimetadata\n    _kale_blocks\
+        \ = (_kale_pipeline_parameters_block, _kale_data_loading_block,\n        \
+        \            _kale_block1,\n                    _kale_block2,\n          \
+        \          _kale_block3,\n                    )\n    _kale_html_artifact =\
+        \ _kale_run_code(_kale_blocks)\n    with open(\"/upload_alfresco_model_data.html\"\
+        , \"w\") as f:\n        f.write(_kale_html_artifact)\n    _kale_update_uimetadata('upload_alfresco_model_data')\n\
+        \n    _kale_mlmdutils.call(\"mark_execution_complete\")\n\nimport argparse\n\
+        _parser = argparse.ArgumentParser(prog='Upload alfresco model data', description='')\n\
+        _parser.add_argument(\"--ALFRESCO-NODE-ID\", dest=\"ALFRESCO_NODE_ID\", type=str,\
+        \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--AUTH-ENDPOINT\"\
+        , dest=\"AUTH_ENDPOINT\", type=str, required=True, default=argparse.SUPPRESS)\n\
+        _parser.add_argument(\"--BASE-ENDPOINT\", dest=\"BASE_ENDPOINT\", type=str,\
+        \ required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\
+        \n_outputs = upload_alfresco_model_data(**_parsed_args)\n"
       image: sipecam/audio-dgpi-kale-tensorflow-yuntu-dask-cert:0.6.1_dev
       securityContext: {runAsUser: 0}
       volumeMounts:
@@ -4849,7 +4850,7 @@ spec:
           indices by frequency\\''\\''\\''\n        return (df\n                .groupby(by=[\"id\",
           hash_name, \"start_time\", \"end_time\"])\n                .apply(get_vectors,
           indices)\n                .reset_index()\n                .rename(columns={0:\"index_vector\"}))\n    ''''''\n\n    _kale_block3
-          = ''''''\n    session = login()\n    for sc_path in sub_folder_results:\n        for
+          = ''''''\n    load_dotenv()\n    session = login()\n    for sc_path in sub_folder_results:\n        for
           file in os.listdir(sc_path):\n            if file.split(\".\")[-1] in [\"png\",
           \"mp4\"]:\n                print(file)\n                change_type_sipecam_sc(session,
           ALFRESCO_NODE_ID, sc_path, file, ''soundscape:product'')\n    ''''''\n\n    #
@@ -5330,14 +5331,14 @@ spec:
         id\", hash_name, \"start_time\", \"end_time\"])\n                .apply(get_vectors,\
         \ indices)\n                .reset_index()\n                .rename(columns={0:\"\
         index_vector\"}))\n    '''\n\n    _kale_block3 = '''\n    FILE_PATTERNS =\
-        \ [\".mp4\", \".png\"] #\".parquet\"\n    session = login()\n    upload_files(FILE_PATTERNS,\
-        \ session, ALFRESCO_NODE_ID, RESULTS_DIR, recursive= True, file_identifier=\"\
-        \")\n    '''\n\n    # run the code blocks inside a jupyter kernel\n    from\
-        \ kale.common.jputils import run_code as _kale_run_code\n    from kale.common.kfputils\
-        \ import \\\n        update_uimetadata as _kale_update_uimetadata\n    _kale_blocks\
-        \ = (_kale_pipeline_parameters_block,\n                    _kale_block1,\n\
-        \                    _kale_block2,\n                    _kale_block3,\n  \
-        \                  )\n    _kale_html_artifact = _kale_run_code(_kale_blocks)\n\
+        \ [\".mp4\", \".png\"] #\".parquet\"\n    load_dotenv()\n    session = login()\n\
+        \    upload_files(FILE_PATTERNS, session, ALFRESCO_NODE_ID, RESULTS_DIR, recursive=\
+        \ True, file_identifier=\"\")\n    '''\n\n    # run the code blocks inside\
+        \ a jupyter kernel\n    from kale.common.jputils import run_code as _kale_run_code\n\
+        \    from kale.common.kfputils import \\\n        update_uimetadata as _kale_update_uimetadata\n\
+        \    _kale_blocks = (_kale_pipeline_parameters_block,\n                  \
+        \  _kale_block1,\n                    _kale_block2,\n                    _kale_block3,\n\
+        \                    )\n    _kale_html_artifact = _kale_run_code(_kale_blocks)\n\
         \    with open(\"/upload_to_alfresco.html\", \"w\") as f:\n        f.write(_kale_html_artifact)\n\
         \    _kale_update_uimetadata('upload_to_alfresco')\n\n    _kale_mlmdutils.call(\"\
         mark_execution_complete\")\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Upload\
@@ -5732,7 +5733,7 @@ spec:
           indices by frequency\\''\\''\\''\n        return (df\n                .groupby(by=[\"id\",
           hash_name, \"start_time\", \"end_time\"])\n                .apply(get_vectors,
           indices)\n                .reset_index()\n                .rename(columns={0:\"index_vector\"}))\n    ''''''\n\n    _kale_block3
-          = ''''''\n    FILE_PATTERNS = [\".mp4\", \".png\"] #\".parquet\"\n    session
+          = ''''''\n    FILE_PATTERNS = [\".mp4\", \".png\"] #\".parquet\"\n    load_dotenv()\n    session
           = login()\n    upload_files(FILE_PATTERNS, session, ALFRESCO_NODE_ID, RESULTS_DIR,
           recursive= True, file_identifier=\"\")\n    ''''''\n\n    # run the code
           blocks inside a jupyter kernel\n    from kale.common.jputils import run_code
@@ -5768,7 +5769,7 @@ spec:
     - {name: AUTH_ENDPOINT, value: alfresco/api/-default-/public/authentication/versions/1}
     - {name: BASE_ENDPOINT, value: alfresco/api/-default-/public/alfresco/versions/1}
     - {name: BLUE_IDX, value: CORE}
-    - {name: CUMULO, value: '92'}
+    - {name: CUMULO, value: '95'}
     - {name: FREQUENCY_BINS, value: '96'}
     - {name: FREQUENCY_LIMITS_LB, value: '0'}
     - {name: FREQUENCY_LIMITS_UB, value: '24000'}

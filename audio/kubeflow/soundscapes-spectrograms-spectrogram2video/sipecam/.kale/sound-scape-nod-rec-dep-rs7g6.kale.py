@@ -4925,7 +4925,7 @@ if __name__ == "__main__":
     time.sleep(180)
     pipeline_parameters = {"CUMULO": 95,
                            "SAMPLERATE": 48000.0,
-                           "PAGESIZE": 9000,
+                           "PAGESIZE": 7000,
                            "RED_IDX": "EXAG",
                            "GREEN_IDX": "INFORMATION",
                            "BLUE_IDX": "CORE",
@@ -4951,7 +4951,7 @@ if __name__ == "__main__":
     time.sleep(180)
     pipeline_parameters = {"CUMULO": 32,
                            "SAMPLERATE": 48000.0,
-                           "PAGESIZE": 9000,
+                           "PAGESIZE": 4000,
                            "RED_IDX": "EXAG",
                            "GREEN_IDX": "INFORMATION",
                            "BLUE_IDX": "CORE",

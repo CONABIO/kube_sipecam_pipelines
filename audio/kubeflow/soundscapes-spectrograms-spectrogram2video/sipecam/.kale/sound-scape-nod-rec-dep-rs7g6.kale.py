@@ -646,7 +646,8 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -1434,7 +1435,8 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -2212,7 +2214,8 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -3063,7 +3066,8 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, CUMULO
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -3834,7 +3838,8 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -4586,7 +4591,8 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -4722,10 +4728,10 @@ _kale_upload_alfresco_model_data_op = _kfp_components.func_to_container_op(
 
 
 @_kfp_dsl.pipeline(
-    name='sound-scape-nod-rec-dep-rs7g6',
+    name='sound-scape-nod-rec-dep-yvj8a',
     description='Computes Sipecam Soundscapes using cumulus, node, recorder and deployment'
 )
-def auto_generated_pipeline(ALFRESCO_NODE_ID='cf3a1b97-965d-489f-bfdf-5c8e26c4ac95', AUTH_ENDPOINT='alfresco/api/-default-/public/authentication/versions/1', BASE_ENDPOINT='alfresco/api/-default-/public/alfresco/versions/1', BLUE_IDX='CORE', CUMULO='92', FREQUENCY_BINS='96', FREQUENCY_LIMITS_LB='0', FREQUENCY_LIMITS_UB='24000', GREEN_IDX='INFORMATION', HASHER_TIME_MODULE='48', HASHER_TIME_UNIT='1800', HASH_NAME='crono_hash_30m', LIMIT='False', MIN_FREQ_SC='10000', PAGESIZE='10000', RED_IDX='EXAG', RESULTS_DIR='/shared_volume/audio/soundscapes', SAMPLERATE='48000.0', SPECTRUM='Audible', THREADS_PER_WORKER='2', TIME_UNIT='30', VIDS_PER_HOUR='3', WORK_DIR_PIPELINE='.', vol_shared_volume='hostpath-pvc'):
+def auto_generated_pipeline(ALFRESCO_NODE_ID='cf3a1b97-965d-489f-bfdf-5c8e26c4ac95', AUTH_ENDPOINT='alfresco/api/-default-/public/authentication/versions/1', BASE_ENDPOINT='alfresco/api/-default-/public/alfresco/versions/1', BLUE_IDX='CORE', CUMULO='92', FREQUENCY_BINS='96', FREQUENCY_LIMITS_LB='0', FREQUENCY_LIMITS_UB='24000', GREEN_IDX='INFORMATION', HASHER_TIME_MODULE='48', HASHER_TIME_UNIT='1800', HASH_NAME='crono_hash_30m', LIMIT='False', MIN_FREQ_SC='10000', PAGESIZE='9000', RED_IDX='EXAG', RESULTS_DIR='/shared_volume/audio/soundscapes', SAMPLERATE='48000.0', SPECTRUM='Audible', THREADS_PER_WORKER='2', TIME_UNIT='30', VIDS_PER_HOUR='3', WORK_DIR_PIPELINE='.', vol_shared_volume='hostpath-pvc'):
     _kale_pvolumes_dict = OrderedDict()
     _kale_volume_step_names = []
     _kale_volume_name_parameters = []

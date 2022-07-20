@@ -4898,7 +4898,7 @@ if __name__ == "__main__":
     run_name = generate_run_name('sound-scape-nod-rec-dep-rs7g6')
     pipeline_parameters = {"CUMULO": 92,
                            "SAMPLERATE": 48000.0,
-                           "PAGESIZE": 10000,
+                           "PAGESIZE": 9000,
                            "RED_IDX": "EXAG",
                            "GREEN_IDX": "INFORMATION",
                            "BLUE_IDX": "CORE",
@@ -4925,7 +4925,7 @@ if __name__ == "__main__":
     time.sleep(180)
     pipeline_parameters = {"CUMULO": 95,
                            "SAMPLERATE": 48000.0,
-                           "PAGESIZE": 10000,
+                           "PAGESIZE": 9000,
                            "RED_IDX": "EXAG",
                            "GREEN_IDX": "INFORMATION",
                            "BLUE_IDX": "CORE",
@@ -4951,7 +4951,7 @@ if __name__ == "__main__":
     time.sleep(180)
     pipeline_parameters = {"CUMULO": 32,
                            "SAMPLERATE": 48000.0,
-                           "PAGESIZE": 10000,
+                           "PAGESIZE": 9000,
                            "RED_IDX": "EXAG",
                            "GREEN_IDX": "INFORMATION",
                            "BLUE_IDX": "CORE",
@@ -4977,7 +4977,7 @@ if __name__ == "__main__":
     time.sleep(180)
     pipeline_parameters = {"CUMULO": 13,
                            "SAMPLERATE": 48000.0,
-                           "PAGESIZE": 10000,
+                           "PAGESIZE": 9000,
                            "RED_IDX": "EXAG",
                            "GREEN_IDX": "INFORMATION",
                            "BLUE_IDX": "CORE",

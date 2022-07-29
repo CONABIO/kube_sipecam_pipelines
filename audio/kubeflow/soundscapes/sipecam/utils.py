@@ -2,17 +2,20 @@ import os
 import datetime
 from dateutil.parser import parse as dateutil_parse
 
+
 def time2seconds(tstring):
     duration_ = tstring.split(":")
 
-    return float(duration_[0])*3600 + float(duration_[1])*60 + float(duration_[2]) 
+    return float(duration_[0])*3600 + float(duration_[1])*60 + float(duration_[2])
+
 
 def parser_prev(datum):
     web_dav_path = datum["entry"]["path"]["name"]
     file_name = datum["entry"]["name"]
     metadata_path = os.path.join(web_dav_path, file_name)
-    cumulo = metadata_path.split("cumulo")[1].split("/")[0].replace("-","")
-    web_dav_local_path = os.path.join("/shared_volume/webdav_alfresco/Sites/sipecam/documentLibrary", cumulo)
+    cumulo = metadata_path.split("cumulo")[1].split("/")[0].replace("-", "")
+    web_dav_local_path = os.path.join(
+        "/shared_volume/webdav_alfresco/Sites/sipecam/documentLibrary", cumulo)
     adj_metadata_path = metadata_path.split("documentLibrary/")[-1]
 
     path = os.path.join(web_dav_local_path, adj_metadata_path)
@@ -24,9 +27,10 @@ def parser_prev(datum):
 
     # Este es el dato de duración que trae la cabecera pero puede ser distinto del valor real.
     duration = time2seconds(properties['sipecamAudio:Duration'])
-    
-    filesize = float(properties["sipecamAudio:FileSize"].replace(" MiB", ""))*(2**20)
-    
+
+    filesize = float(
+        properties["sipecamAudio:FileSize"].replace(" MiB", ""))*(2**20)
+
     media_info = {
         'nchannels': properties["sipecamAudio:NumChannels"],
         'sampwidth': 2,
@@ -42,7 +46,7 @@ def parser_prev(datum):
     dtime = dateutil_parse(properties["sipecamAudio:Datetime"])
     dtime_format = "%H:%M:%S %d/%m/%Y (%z)"
     dtime_raw = datetime.datetime.strftime(dtime, format=dtime_format)
-    
+
     latitude = properties["sipecamAudio:Latitude"]
     longitude = properties["sipecamAudio:Longitude"]
 
@@ -63,7 +67,7 @@ def parser_prev(datum):
         'latitude': latitude,
         'longitude': longitude
     }
-    
+
 
 def parser(datum):
     web_dav_path = datum["entry"]["path"]["name"]

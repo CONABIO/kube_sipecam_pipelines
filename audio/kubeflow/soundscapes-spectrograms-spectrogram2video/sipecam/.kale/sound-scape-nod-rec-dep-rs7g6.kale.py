@@ -61,7 +61,6 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
 
     _kale_block2 = '''
     def audio2video(audio_id,
-                    identifier,
                     audio_df,
                     save_path_folder,
                     product_spectrum,
@@ -121,10 +120,10 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
         # edaudio = AudioArrayClip(audio_array, fps=audio.samplerate)
         edaudio = AudioFileClip(audio.path).set_end(audio.duration)
         video = video.set_audio(edaudio)
-        file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram_video.mp4")
+        file_path = os.path.join(save_path_folder, f"{audio_id}.mp4")
         video.write_videofile(file_path, fps=fps)
         
-        save_metadata_videoclip(id_audio, identifier, product_spectrum,
+        save_metadata_videoclip(audio_id, product_spectrum,
                       save_path_folder, cumulus, node, recorder, deployment, 0.0, audio.duration)
         video.close()
         edaudio.close()
@@ -145,8 +144,11 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
         elif file_type == "hashed_soundscape.parquet":
             metadata_name = "soundscape_metadata.json" 
             aggr_type = "None"
-        else:
-            metadata_name = file_type.split(".")[0] + "_metadata.json"
+        elif ".png" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_metadata.json"
+            aggr_type = "Null"
+        elif ".mp4" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_video_metadata.json"
             aggr_type = "Null"
 
         try:
@@ -199,7 +201,6 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
                                 prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
                                 prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
                                 prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -211,7 +212,6 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
                                 prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
                             elif ("spectrogram" or "video") in entry['entry']['name']:
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -221,6 +221,7 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
                                 prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
                                 prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
                                 prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:AudioID"] = data_json["AudioID"]
 
                         aspects = entry['entry']['aspectNames']
                         data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
@@ -272,8 +273,12 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
                 
         return subdir_list
 
-    def get_audio_ids(soundscape_path, indices):
+    def get_audio_ids(soundscape_path, indices, nsamples):
         df = pd.read_parquet(os.path.join(soundscape_path, "hashed_soundscape.parquet"))
+        
+        df["time_raw_hour"] = df["time_raw"].apply(lambda x: datetime.datetime.strptime(x,'%H:%M:%S %d/%m/%Y (%z)').strftime("%H"))
+        hours_list = list(df.time_raw_hour.unique())
+        hours_list.sort(key = int)
 
         with open(os.path.join(soundscape_path, "soundscape_metadata.json")) as f:
             metadata = json.load(f)
@@ -284,12 +289,17 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
         hash_name = metadata["product_configs"]["hash_name"]
         cycle_config = metadata["product_configs"]["hasher_config"]["kwargs"]
         time_unit = cycle_config["time_unit"]
-        zero_t = aware_time( cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
+        zero_t = aware_time(cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
         
-        # sample
-        samples_df = get_recording_samples(df, hash_name, indices, time_unit, zero_t, nsamples=3)
-        sub_df = samples_df[samples_df.crono_hash_30m == 8]
-        audio_id_list = list(sub_df["id"].unique())
+        # iterate over hours
+        audio_id_list = []
+        for hour in hours_list:
+            subdf = df.query(f"time_raw_hour == '{hour}'")
+            # sample
+            samples_df = get_recording_samples(subdf, hash_name, indices, time_unit, zero_t, nsamples=3)
+            unique_crono_hash_list = list(samples_df.crono_hash_30m.unique())
+            sub_df = samples_df[samples_df.crono_hash_30m == min(unique_crono_hash_list)]
+            audio_id_list += list(sub_df.id.tolist())
         
         return audio_id_list
 
@@ -310,7 +320,6 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
             mean_unit_vector = unit_vectors.normalized_index_vector.mean()
             unit_vectors.loc[:, "distance"] = unit_vectors.normalized_index_vector.apply(lambda x: distance_to_mean(x, mean_unit_vector))
             all_samples.append(unit_vectors.sort_values(by="distance").head(nsamples))
-
         return pd.concat(all_samples)
 
     def get_vectors(group, indices):
@@ -342,9 +351,9 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
 
             return session
         except Exception as e:
-            print("Login failed: ",e)
+            print("Login failed: ", e)
 
-    def plot_spectrogram(audio_id, identifier, audio_df, save_path_folder, spectrum, cumulus):
+    def plot_spectrogram(audio_id, audio_df, save_path_folder, spectrum, cumulus):
         sub_audio_df = audio_df[audio_df["id"]==audio_id]
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
@@ -358,12 +367,13 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
         ax[1].set_ylabel('F (KHz)')
         ax[1].set_xlabel('Time (seconds)')
         fig.text(0.75, 0.04, f"Cumulus: {cumulus} - Node: {node} - Recorder: {recorder}", va='center')
-        plt.show()
+        plt.tight_layout()
         if save_path_folder:
-            file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram.png")
+            file_path = os.path.join(save_path_folder, f"{audio_id}.png")
             fig.savefig(file_path)
+        plt.show()
         
-        save_metadata_spectrogram(audio_id, identifier, spectrum, save_path_folder, 
+        save_metadata_spectrogram(audio_id, spectrum, save_path_folder, 
                                   cumulus, node, recorder, deployment, parent="Null")
         
     def plot_soundscape(soundscape, product_type, product_spectrum, sc_config, path, 
@@ -375,7 +385,7 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
             
         if product_type == "sequence":
             file_path = os.path.join(path, "sequence.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -386,12 +396,12 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
             plt.savefig(file_path) 
             plt.show()
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent=parent)
              
         elif product_type == "standard_deviation":
             file_path = os.path.join(path, "std_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -404,12 +414,12 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)     
             
         elif product_type == "mean": 
             file_path = os.path.join(path, "mean_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -422,7 +432,7 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)    
             
         print(f"File saved at {file_path}")
@@ -472,7 +482,7 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
             if len(os.listdir(path)) == 0:
                 os.rmdir(path)            
                 
-    def save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+    def save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent="Null"):
         if product_type == "soundscape":
             product_name = "Soundscape"
@@ -497,7 +507,6 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_configs": sc_config,
@@ -513,11 +522,12 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
         with open(metadata_filename, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
 
-    def save_metadata_spectrogram(product_id, identifier, product_spectrum,
+    def save_metadata_spectrogram(audio_id, product_spectrum,
                       path, cumulus, node, recorder, deployment, parent="Null"):
+        # identifier is being used as audio_id in alfresco
         product_name = "Spectrogram"
-        file_path = os.path.join(path, f"{identifier}_spectrogram.png")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_metadata.json")
+        file_path = os.path.join(path, f"{audio_id}.png")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_metadata.json")
 
         if int(node.split("_")[2]) == 0:
             node_category = "Degradado"
@@ -525,36 +535,6 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
-            "product_parent": parent,
-            "product_name": product_name,
-            "product_path": file_path,
-            "product_spectrum": product_spectrum,
-            "CumulusName": cumulus,
-            "NodeCategoryIntegrity": node_category,
-            "NomenclatureNode": node,
-            "SerialNumber": recorder,
-            "DateDeployment": deployment
-        }
-        with open(metadata_filename, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=4)
-            
-        print(f"{file_path} saved.")
-        print(f"{metadata_filename} saved.")
-        
-    def save_metadata_videoclip(product_id, identifier, product_spectrum, path, cumulus, node, recorder, 
-                                deployment, clip_start, clip_end, parent="Null"):
-        product_name = "spectrogram_video"
-        file_path = os.path.join(path, f"{identifier}_spectrogram_video.mp4")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_video_metadata.json")
-
-        if int(node.split("_")[2]) == 0:
-            node_category = "Degradado"
-        elif int(node.split("_")[2]) == 1:
-            node_category = "Integro"
-
-        metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
@@ -564,8 +544,41 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
             "NomenclatureNode": node,
             "SerialNumber": recorder,
             "DateDeployment": deployment,
+            "AudioID": audio_id
+        }
+        with open(metadata_filename, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=4)
+            
+        print(f"{file_path} saved.")
+        print(f"{metadata_filename} saved.")
+
+        
+    def save_metadata_videoclip(audio_id, product_spectrum, path, cumulus, node, recorder, 
+                                deployment, clip_start, clip_end, parent="Null"):
+        # identifier is being used as audio_id in alfresco
+        product_name = "spectrogram_video"
+        file_path = os.path.join(path, f"{audio_id}.mp4")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_video_metadata.json")
+
+        if int(node.split("_")[2]) == 0:
+            node_category = "Degradado"
+        elif int(node.split("_")[2]) == 1:
+            node_category = "Integro"
+
+        metadata = {
+            "product_parent": parent,
+            "product_name": product_name,
+            "product_description": "Spectrogram Video. Time is show in local timezone",
+            "product_path": file_path,
+            "product_spectrum": product_spectrum,
+            "CumulusName": cumulus,
+            "NodeCategoryIntegrity": node_category,
+            "NomenclatureNode": node,
+            "SerialNumber": recorder,
+            "DateDeployment": deployment,
             "ClipStart": clip_start,
-            "ClipEnd": clip_end
+            "ClipEnd": clip_end,
+            "AudioID": audio_id
         }
         
         with open(metadata_filename, 'w', encoding='utf-8') as f:
@@ -633,7 +646,8 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -722,7 +736,7 @@ def get_audio_df(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, LIMIT: boo
     DB_CONFIG = {
         'provider': 'alfresco',
         'config': {
-            'api_url': 'https://api.conabio.gob.mx/test',
+            'api_url': 'https://api.conabio.gob.mx/alfresco',
             'page_size': PAGESIZE,
             'api_key': os.getenv("X_API_KEY"),
             'base_filter': "+TYPE: \\"sipecam:audio\\" AND -TYPE: \\"dummyType\\"",
@@ -836,7 +850,6 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
 
     _kale_block2 = '''
     def audio2video(audio_id,
-                    identifier,
                     audio_df,
                     save_path_folder,
                     product_spectrum,
@@ -896,10 +909,10 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
         # edaudio = AudioArrayClip(audio_array, fps=audio.samplerate)
         edaudio = AudioFileClip(audio.path).set_end(audio.duration)
         video = video.set_audio(edaudio)
-        file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram_video.mp4")
+        file_path = os.path.join(save_path_folder, f"{audio_id}.mp4")
         video.write_videofile(file_path, fps=fps)
         
-        save_metadata_videoclip(id_audio, identifier, product_spectrum,
+        save_metadata_videoclip(audio_id, product_spectrum,
                       save_path_folder, cumulus, node, recorder, deployment, 0.0, audio.duration)
         video.close()
         edaudio.close()
@@ -920,8 +933,11 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
         elif file_type == "hashed_soundscape.parquet":
             metadata_name = "soundscape_metadata.json" 
             aggr_type = "None"
-        else:
-            metadata_name = file_type.split(".")[0] + "_metadata.json"
+        elif ".png" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_metadata.json"
+            aggr_type = "Null"
+        elif ".mp4" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_video_metadata.json"
             aggr_type = "Null"
 
         try:
@@ -974,7 +990,6 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
                                 prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
                                 prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
                                 prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -986,7 +1001,6 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
                                 prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
                             elif ("spectrogram" or "video") in entry['entry']['name']:
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -996,6 +1010,7 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
                                 prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
                                 prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
                                 prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:AudioID"] = data_json["AudioID"]
 
                         aspects = entry['entry']['aspectNames']
                         data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
@@ -1047,8 +1062,12 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
                 
         return subdir_list
 
-    def get_audio_ids(soundscape_path, indices):
+    def get_audio_ids(soundscape_path, indices, nsamples):
         df = pd.read_parquet(os.path.join(soundscape_path, "hashed_soundscape.parquet"))
+        
+        df["time_raw_hour"] = df["time_raw"].apply(lambda x: datetime.datetime.strptime(x,'%H:%M:%S %d/%m/%Y (%z)').strftime("%H"))
+        hours_list = list(df.time_raw_hour.unique())
+        hours_list.sort(key = int)
 
         with open(os.path.join(soundscape_path, "soundscape_metadata.json")) as f:
             metadata = json.load(f)
@@ -1059,12 +1078,17 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
         hash_name = metadata["product_configs"]["hash_name"]
         cycle_config = metadata["product_configs"]["hasher_config"]["kwargs"]
         time_unit = cycle_config["time_unit"]
-        zero_t = aware_time( cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
+        zero_t = aware_time(cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
         
-        # sample
-        samples_df = get_recording_samples(df, hash_name, indices, time_unit, zero_t, nsamples=3)
-        sub_df = samples_df[samples_df.crono_hash_30m == 8]
-        audio_id_list = list(sub_df["id"].unique())
+        # iterate over hours
+        audio_id_list = []
+        for hour in hours_list:
+            subdf = df.query(f"time_raw_hour == '{hour}'")
+            # sample
+            samples_df = get_recording_samples(subdf, hash_name, indices, time_unit, zero_t, nsamples=3)
+            unique_crono_hash_list = list(samples_df.crono_hash_30m.unique())
+            sub_df = samples_df[samples_df.crono_hash_30m == min(unique_crono_hash_list)]
+            audio_id_list += list(sub_df.id.tolist())
         
         return audio_id_list
 
@@ -1085,7 +1109,6 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
             mean_unit_vector = unit_vectors.normalized_index_vector.mean()
             unit_vectors.loc[:, "distance"] = unit_vectors.normalized_index_vector.apply(lambda x: distance_to_mean(x, mean_unit_vector))
             all_samples.append(unit_vectors.sort_values(by="distance").head(nsamples))
-
         return pd.concat(all_samples)
 
     def get_vectors(group, indices):
@@ -1117,9 +1140,9 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
 
             return session
         except Exception as e:
-            print("Login failed: ",e)
+            print("Login failed: ", e)
 
-    def plot_spectrogram(audio_id, identifier, audio_df, save_path_folder, spectrum, cumulus):
+    def plot_spectrogram(audio_id, audio_df, save_path_folder, spectrum, cumulus):
         sub_audio_df = audio_df[audio_df["id"]==audio_id]
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
@@ -1133,12 +1156,13 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
         ax[1].set_ylabel('F (KHz)')
         ax[1].set_xlabel('Time (seconds)')
         fig.text(0.75, 0.04, f"Cumulus: {cumulus} - Node: {node} - Recorder: {recorder}", va='center')
-        plt.show()
+        plt.tight_layout()
         if save_path_folder:
-            file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram.png")
+            file_path = os.path.join(save_path_folder, f"{audio_id}.png")
             fig.savefig(file_path)
+        plt.show()
         
-        save_metadata_spectrogram(audio_id, identifier, spectrum, save_path_folder, 
+        save_metadata_spectrogram(audio_id, spectrum, save_path_folder, 
                                   cumulus, node, recorder, deployment, parent="Null")
         
     def plot_soundscape(soundscape, product_type, product_spectrum, sc_config, path, 
@@ -1150,7 +1174,7 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
             
         if product_type == "sequence":
             file_path = os.path.join(path, "sequence.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -1161,12 +1185,12 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
             plt.savefig(file_path) 
             plt.show()
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent=parent)
              
         elif product_type == "standard_deviation":
             file_path = os.path.join(path, "std_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -1179,12 +1203,12 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)     
             
         elif product_type == "mean": 
             file_path = os.path.join(path, "mean_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -1197,7 +1221,7 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)    
             
         print(f"File saved at {file_path}")
@@ -1247,7 +1271,7 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
             if len(os.listdir(path)) == 0:
                 os.rmdir(path)            
                 
-    def save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+    def save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent="Null"):
         if product_type == "soundscape":
             product_name = "Soundscape"
@@ -1272,7 +1296,6 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_configs": sc_config,
@@ -1288,11 +1311,12 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
         with open(metadata_filename, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
 
-    def save_metadata_spectrogram(product_id, identifier, product_spectrum,
+    def save_metadata_spectrogram(audio_id, product_spectrum,
                       path, cumulus, node, recorder, deployment, parent="Null"):
+        # identifier is being used as audio_id in alfresco
         product_name = "Spectrogram"
-        file_path = os.path.join(path, f"{identifier}_spectrogram.png")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_metadata.json")
+        file_path = os.path.join(path, f"{audio_id}.png")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_metadata.json")
 
         if int(node.split("_")[2]) == 0:
             node_category = "Degradado"
@@ -1300,36 +1324,6 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
-            "product_parent": parent,
-            "product_name": product_name,
-            "product_path": file_path,
-            "product_spectrum": product_spectrum,
-            "CumulusName": cumulus,
-            "NodeCategoryIntegrity": node_category,
-            "NomenclatureNode": node,
-            "SerialNumber": recorder,
-            "DateDeployment": deployment
-        }
-        with open(metadata_filename, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=4)
-            
-        print(f"{file_path} saved.")
-        print(f"{metadata_filename} saved.")
-        
-    def save_metadata_videoclip(product_id, identifier, product_spectrum, path, cumulus, node, recorder, 
-                                deployment, clip_start, clip_end, parent="Null"):
-        product_name = "spectrogram_video"
-        file_path = os.path.join(path, f"{identifier}_spectrogram_video.mp4")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_video_metadata.json")
-
-        if int(node.split("_")[2]) == 0:
-            node_category = "Degradado"
-        elif int(node.split("_")[2]) == 1:
-            node_category = "Integro"
-
-        metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
@@ -1339,8 +1333,41 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
             "NomenclatureNode": node,
             "SerialNumber": recorder,
             "DateDeployment": deployment,
+            "AudioID": audio_id
+        }
+        with open(metadata_filename, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=4)
+            
+        print(f"{file_path} saved.")
+        print(f"{metadata_filename} saved.")
+
+        
+    def save_metadata_videoclip(audio_id, product_spectrum, path, cumulus, node, recorder, 
+                                deployment, clip_start, clip_end, parent="Null"):
+        # identifier is being used as audio_id in alfresco
+        product_name = "spectrogram_video"
+        file_path = os.path.join(path, f"{audio_id}.mp4")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_video_metadata.json")
+
+        if int(node.split("_")[2]) == 0:
+            node_category = "Degradado"
+        elif int(node.split("_")[2]) == 1:
+            node_category = "Integro"
+
+        metadata = {
+            "product_parent": parent,
+            "product_name": product_name,
+            "product_description": "Spectrogram Video. Time is show in local timezone",
+            "product_path": file_path,
+            "product_spectrum": product_spectrum,
+            "CumulusName": cumulus,
+            "NodeCategoryIntegrity": node_category,
+            "NomenclatureNode": node,
+            "SerialNumber": recorder,
+            "DateDeployment": deployment,
             "ClipStart": clip_start,
-            "ClipEnd": clip_end
+            "ClipEnd": clip_end,
+            "AudioID": audio_id
         }
         
         with open(metadata_filename, 'w', encoding='utf-8') as f:
@@ -1408,7 +1435,8 @@ def create_results_dirstruct(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -1601,7 +1629,6 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
 
     _kale_block2 = '''
     def audio2video(audio_id,
-                    identifier,
                     audio_df,
                     save_path_folder,
                     product_spectrum,
@@ -1661,10 +1688,10 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
         # edaudio = AudioArrayClip(audio_array, fps=audio.samplerate)
         edaudio = AudioFileClip(audio.path).set_end(audio.duration)
         video = video.set_audio(edaudio)
-        file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram_video.mp4")
+        file_path = os.path.join(save_path_folder, f"{audio_id}.mp4")
         video.write_videofile(file_path, fps=fps)
         
-        save_metadata_videoclip(id_audio, identifier, product_spectrum,
+        save_metadata_videoclip(audio_id, product_spectrum,
                       save_path_folder, cumulus, node, recorder, deployment, 0.0, audio.duration)
         video.close()
         edaudio.close()
@@ -1685,8 +1712,11 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
         elif file_type == "hashed_soundscape.parquet":
             metadata_name = "soundscape_metadata.json" 
             aggr_type = "None"
-        else:
-            metadata_name = file_type.split(".")[0] + "_metadata.json"
+        elif ".png" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_metadata.json"
+            aggr_type = "Null"
+        elif ".mp4" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_video_metadata.json"
             aggr_type = "Null"
 
         try:
@@ -1739,7 +1769,6 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
                                 prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
                                 prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
                                 prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -1751,7 +1780,6 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
                                 prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
                             elif ("spectrogram" or "video") in entry['entry']['name']:
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -1761,6 +1789,7 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
                                 prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
                                 prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
                                 prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:AudioID"] = data_json["AudioID"]
 
                         aspects = entry['entry']['aspectNames']
                         data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
@@ -1812,8 +1841,12 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
                 
         return subdir_list
 
-    def get_audio_ids(soundscape_path, indices):
+    def get_audio_ids(soundscape_path, indices, nsamples):
         df = pd.read_parquet(os.path.join(soundscape_path, "hashed_soundscape.parquet"))
+        
+        df["time_raw_hour"] = df["time_raw"].apply(lambda x: datetime.datetime.strptime(x,'%H:%M:%S %d/%m/%Y (%z)').strftime("%H"))
+        hours_list = list(df.time_raw_hour.unique())
+        hours_list.sort(key = int)
 
         with open(os.path.join(soundscape_path, "soundscape_metadata.json")) as f:
             metadata = json.load(f)
@@ -1824,12 +1857,17 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
         hash_name = metadata["product_configs"]["hash_name"]
         cycle_config = metadata["product_configs"]["hasher_config"]["kwargs"]
         time_unit = cycle_config["time_unit"]
-        zero_t = aware_time( cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
+        zero_t = aware_time(cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
         
-        # sample
-        samples_df = get_recording_samples(df, hash_name, indices, time_unit, zero_t, nsamples=3)
-        sub_df = samples_df[samples_df.crono_hash_30m == 8]
-        audio_id_list = list(sub_df["id"].unique())
+        # iterate over hours
+        audio_id_list = []
+        for hour in hours_list:
+            subdf = df.query(f"time_raw_hour == '{hour}'")
+            # sample
+            samples_df = get_recording_samples(subdf, hash_name, indices, time_unit, zero_t, nsamples=3)
+            unique_crono_hash_list = list(samples_df.crono_hash_30m.unique())
+            sub_df = samples_df[samples_df.crono_hash_30m == min(unique_crono_hash_list)]
+            audio_id_list += list(sub_df.id.tolist())
         
         return audio_id_list
 
@@ -1850,7 +1888,6 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             mean_unit_vector = unit_vectors.normalized_index_vector.mean()
             unit_vectors.loc[:, "distance"] = unit_vectors.normalized_index_vector.apply(lambda x: distance_to_mean(x, mean_unit_vector))
             all_samples.append(unit_vectors.sort_values(by="distance").head(nsamples))
-
         return pd.concat(all_samples)
 
     def get_vectors(group, indices):
@@ -1882,9 +1919,9 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
 
             return session
         except Exception as e:
-            print("Login failed: ",e)
+            print("Login failed: ", e)
 
-    def plot_spectrogram(audio_id, identifier, audio_df, save_path_folder, spectrum, cumulus):
+    def plot_spectrogram(audio_id, audio_df, save_path_folder, spectrum, cumulus):
         sub_audio_df = audio_df[audio_df["id"]==audio_id]
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
@@ -1898,12 +1935,13 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
         ax[1].set_ylabel('F (KHz)')
         ax[1].set_xlabel('Time (seconds)')
         fig.text(0.75, 0.04, f"Cumulus: {cumulus} - Node: {node} - Recorder: {recorder}", va='center')
-        plt.show()
+        plt.tight_layout()
         if save_path_folder:
-            file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram.png")
+            file_path = os.path.join(save_path_folder, f"{audio_id}.png")
             fig.savefig(file_path)
+        plt.show()
         
-        save_metadata_spectrogram(audio_id, identifier, spectrum, save_path_folder, 
+        save_metadata_spectrogram(audio_id, spectrum, save_path_folder, 
                                   cumulus, node, recorder, deployment, parent="Null")
         
     def plot_soundscape(soundscape, product_type, product_spectrum, sc_config, path, 
@@ -1915,7 +1953,7 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             
         if product_type == "sequence":
             file_path = os.path.join(path, "sequence.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -1926,12 +1964,12 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             plt.savefig(file_path) 
             plt.show()
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent=parent)
              
         elif product_type == "standard_deviation":
             file_path = os.path.join(path, "std_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -1944,12 +1982,12 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)     
             
         elif product_type == "mean": 
             file_path = os.path.join(path, "mean_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -1962,7 +2000,7 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)    
             
         print(f"File saved at {file_path}")
@@ -2012,7 +2050,7 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             if len(os.listdir(path)) == 0:
                 os.rmdir(path)            
                 
-    def save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+    def save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent="Null"):
         if product_type == "soundscape":
             product_name = "Soundscape"
@@ -2037,7 +2075,6 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_configs": sc_config,
@@ -2053,11 +2090,12 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
         with open(metadata_filename, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
 
-    def save_metadata_spectrogram(product_id, identifier, product_spectrum,
+    def save_metadata_spectrogram(audio_id, product_spectrum,
                       path, cumulus, node, recorder, deployment, parent="Null"):
+        # identifier is being used as audio_id in alfresco
         product_name = "Spectrogram"
-        file_path = os.path.join(path, f"{identifier}_spectrogram.png")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_metadata.json")
+        file_path = os.path.join(path, f"{audio_id}.png")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_metadata.json")
 
         if int(node.split("_")[2]) == 0:
             node_category = "Degradado"
@@ -2065,36 +2103,6 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
-            "product_parent": parent,
-            "product_name": product_name,
-            "product_path": file_path,
-            "product_spectrum": product_spectrum,
-            "CumulusName": cumulus,
-            "NodeCategoryIntegrity": node_category,
-            "NomenclatureNode": node,
-            "SerialNumber": recorder,
-            "DateDeployment": deployment
-        }
-        with open(metadata_filename, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=4)
-            
-        print(f"{file_path} saved.")
-        print(f"{metadata_filename} saved.")
-        
-    def save_metadata_videoclip(product_id, identifier, product_spectrum, path, cumulus, node, recorder, 
-                                deployment, clip_start, clip_end, parent="Null"):
-        product_name = "spectrogram_video"
-        file_path = os.path.join(path, f"{identifier}_spectrogram_video.mp4")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_video_metadata.json")
-
-        if int(node.split("_")[2]) == 0:
-            node_category = "Degradado"
-        elif int(node.split("_")[2]) == 1:
-            node_category = "Integro"
-
-        metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
@@ -2104,8 +2112,41 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             "NomenclatureNode": node,
             "SerialNumber": recorder,
             "DateDeployment": deployment,
+            "AudioID": audio_id
+        }
+        with open(metadata_filename, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=4)
+            
+        print(f"{file_path} saved.")
+        print(f"{metadata_filename} saved.")
+
+        
+    def save_metadata_videoclip(audio_id, product_spectrum, path, cumulus, node, recorder, 
+                                deployment, clip_start, clip_end, parent="Null"):
+        # identifier is being used as audio_id in alfresco
+        product_name = "spectrogram_video"
+        file_path = os.path.join(path, f"{audio_id}.mp4")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_video_metadata.json")
+
+        if int(node.split("_")[2]) == 0:
+            node_category = "Degradado"
+        elif int(node.split("_")[2]) == 1:
+            node_category = "Integro"
+
+        metadata = {
+            "product_parent": parent,
+            "product_name": product_name,
+            "product_description": "Spectrogram Video. Time is show in local timezone",
+            "product_path": file_path,
+            "product_spectrum": product_spectrum,
+            "CumulusName": cumulus,
+            "NodeCategoryIntegrity": node_category,
+            "NomenclatureNode": node,
+            "SerialNumber": recorder,
+            "DateDeployment": deployment,
             "ClipStart": clip_start,
-            "ClipEnd": clip_end
+            "ClipEnd": clip_end,
+            "AudioID": audio_id
         }
         
         with open(metadata_filename, 'w', encoding='utf-8') as f:
@@ -2173,7 +2214,8 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -2308,7 +2350,7 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
         try: 
             start_soundscape = time.monotonic()
             node, recorder, deployment = proc_unit
-            print(f"* Processing: node {node} | recorder {recorder} | deployment date {deployment}")
+            print(f"* Processing: Cumulus {CUMULO} | node {node} | recorder {recorder} | deployment date {deployment}")
             file_path = os.path.join(RESULTS_DIR, str(CUMULO), str(node), recorder, deployment)
             parent_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             # soundscape = recs[recs.proc_unit == proc_unit].audio.get_soundscape(client=client, npartitions=n_workers, **soundscape_config)
@@ -2332,7 +2374,7 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
             # soundscape_orig_path = os.path.join(RESULTS_DIR, "get_soundscape/persist/hashed_soundscape.parquet") 
             soundscape_orig_path = '/shared_volume/audio/soundscape/persist/hashed_soundscape.parquet'
             shutil.move(soundscape_orig_path,soundscape_path)
-            save_metadata_sc(parent_id, "soundscape", SPECTRUM, FEED_metadata, file_path,
+            save_metadata_sc("soundscape", SPECTRUM, FEED_metadata, file_path,
                           CUMULO, node, recorder, deployment)
             shutil.rmtree('/shared_volume/audio/soundscape')
 
@@ -2374,14 +2416,18 @@ def compute_soundscapes(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, C
     _kale_mlmdutils.call("mark_execution_complete")
 
 
-def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_DIR: str, SPECTRUM: str):
+def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, BLUE_IDX: str, CUMULO: int, GREEN_IDX: str, RED_IDX: str, RESULTS_DIR: str, SPECTRUM: str, VIDS_PER_HOUR: int):
     _kale_pipeline_parameters_block = '''
     AUTH_ENDPOINT = "{}"
     BASE_ENDPOINT = "{}"
+    BLUE_IDX = "{}"
     CUMULO = {}
+    GREEN_IDX = "{}"
+    RED_IDX = "{}"
     RESULTS_DIR = "{}"
     SPECTRUM = "{}"
-    '''.format(AUTH_ENDPOINT, BASE_ENDPOINT, CUMULO, RESULTS_DIR, SPECTRUM)
+    VIDS_PER_HOUR = {}
+    '''.format(AUTH_ENDPOINT, BASE_ENDPOINT, BLUE_IDX, CUMULO, GREEN_IDX, RED_IDX, RESULTS_DIR, SPECTRUM, VIDS_PER_HOUR)
 
     from kale.common import mlmdutils as _kale_mlmdutils
     _kale_mlmdutils.init_metadata()
@@ -2435,7 +2481,6 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
 
     _kale_block2 = '''
     def audio2video(audio_id,
-                    identifier,
                     audio_df,
                     save_path_folder,
                     product_spectrum,
@@ -2495,10 +2540,10 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
         # edaudio = AudioArrayClip(audio_array, fps=audio.samplerate)
         edaudio = AudioFileClip(audio.path).set_end(audio.duration)
         video = video.set_audio(edaudio)
-        file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram_video.mp4")
+        file_path = os.path.join(save_path_folder, f"{audio_id}.mp4")
         video.write_videofile(file_path, fps=fps)
         
-        save_metadata_videoclip(id_audio, identifier, product_spectrum,
+        save_metadata_videoclip(audio_id, product_spectrum,
                       save_path_folder, cumulus, node, recorder, deployment, 0.0, audio.duration)
         video.close()
         edaudio.close()
@@ -2519,8 +2564,11 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
         elif file_type == "hashed_soundscape.parquet":
             metadata_name = "soundscape_metadata.json" 
             aggr_type = "None"
-        else:
-            metadata_name = file_type.split(".")[0] + "_metadata.json"
+        elif ".png" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_metadata.json"
+            aggr_type = "Null"
+        elif ".mp4" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_video_metadata.json"
             aggr_type = "Null"
 
         try:
@@ -2573,7 +2621,6 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
                                 prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
                                 prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
                                 prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -2585,7 +2632,6 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
                                 prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
                             elif ("spectrogram" or "video") in entry['entry']['name']:
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -2595,6 +2641,7 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
                                 prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
                                 prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
                                 prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:AudioID"] = data_json["AudioID"]
 
                         aspects = entry['entry']['aspectNames']
                         data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
@@ -2646,8 +2693,12 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
                 
         return subdir_list
 
-    def get_audio_ids(soundscape_path, indices):
+    def get_audio_ids(soundscape_path, indices, nsamples):
         df = pd.read_parquet(os.path.join(soundscape_path, "hashed_soundscape.parquet"))
+        
+        df["time_raw_hour"] = df["time_raw"].apply(lambda x: datetime.datetime.strptime(x,'%H:%M:%S %d/%m/%Y (%z)').strftime("%H"))
+        hours_list = list(df.time_raw_hour.unique())
+        hours_list.sort(key = int)
 
         with open(os.path.join(soundscape_path, "soundscape_metadata.json")) as f:
             metadata = json.load(f)
@@ -2658,12 +2709,17 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
         hash_name = metadata["product_configs"]["hash_name"]
         cycle_config = metadata["product_configs"]["hasher_config"]["kwargs"]
         time_unit = cycle_config["time_unit"]
-        zero_t = aware_time( cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
+        zero_t = aware_time(cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
         
-        # sample
-        samples_df = get_recording_samples(df, hash_name, indices, time_unit, zero_t, nsamples=3)
-        sub_df = samples_df[samples_df.crono_hash_30m == 8]
-        audio_id_list = list(sub_df["id"].unique())
+        # iterate over hours
+        audio_id_list = []
+        for hour in hours_list:
+            subdf = df.query(f"time_raw_hour == '{hour}'")
+            # sample
+            samples_df = get_recording_samples(subdf, hash_name, indices, time_unit, zero_t, nsamples=3)
+            unique_crono_hash_list = list(samples_df.crono_hash_30m.unique())
+            sub_df = samples_df[samples_df.crono_hash_30m == min(unique_crono_hash_list)]
+            audio_id_list += list(sub_df.id.tolist())
         
         return audio_id_list
 
@@ -2684,7 +2740,6 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
             mean_unit_vector = unit_vectors.normalized_index_vector.mean()
             unit_vectors.loc[:, "distance"] = unit_vectors.normalized_index_vector.apply(lambda x: distance_to_mean(x, mean_unit_vector))
             all_samples.append(unit_vectors.sort_values(by="distance").head(nsamples))
-
         return pd.concat(all_samples)
 
     def get_vectors(group, indices):
@@ -2716,9 +2771,9 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
 
             return session
         except Exception as e:
-            print("Login failed: ",e)
+            print("Login failed: ", e)
 
-    def plot_spectrogram(audio_id, identifier, audio_df, save_path_folder, spectrum, cumulus):
+    def plot_spectrogram(audio_id, audio_df, save_path_folder, spectrum, cumulus):
         sub_audio_df = audio_df[audio_df["id"]==audio_id]
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
@@ -2732,12 +2787,13 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
         ax[1].set_ylabel('F (KHz)')
         ax[1].set_xlabel('Time (seconds)')
         fig.text(0.75, 0.04, f"Cumulus: {cumulus} - Node: {node} - Recorder: {recorder}", va='center')
-        plt.show()
+        plt.tight_layout()
         if save_path_folder:
-            file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram.png")
+            file_path = os.path.join(save_path_folder, f"{audio_id}.png")
             fig.savefig(file_path)
+        plt.show()
         
-        save_metadata_spectrogram(audio_id, identifier, spectrum, save_path_folder, 
+        save_metadata_spectrogram(audio_id, spectrum, save_path_folder, 
                                   cumulus, node, recorder, deployment, parent="Null")
         
     def plot_soundscape(soundscape, product_type, product_spectrum, sc_config, path, 
@@ -2749,7 +2805,7 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
             
         if product_type == "sequence":
             file_path = os.path.join(path, "sequence.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -2760,12 +2816,12 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
             plt.savefig(file_path) 
             plt.show()
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent=parent)
              
         elif product_type == "standard_deviation":
             file_path = os.path.join(path, "std_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -2778,12 +2834,12 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)     
             
         elif product_type == "mean": 
             file_path = os.path.join(path, "mean_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -2796,7 +2852,7 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)    
             
         print(f"File saved at {file_path}")
@@ -2846,7 +2902,7 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
             if len(os.listdir(path)) == 0:
                 os.rmdir(path)            
                 
-    def save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+    def save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent="Null"):
         if product_type == "soundscape":
             product_name = "Soundscape"
@@ -2871,7 +2927,6 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_configs": sc_config,
@@ -2887,11 +2942,12 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
         with open(metadata_filename, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
 
-    def save_metadata_spectrogram(product_id, identifier, product_spectrum,
+    def save_metadata_spectrogram(audio_id, product_spectrum,
                       path, cumulus, node, recorder, deployment, parent="Null"):
+        # identifier is being used as audio_id in alfresco
         product_name = "Spectrogram"
-        file_path = os.path.join(path, f"{identifier}_spectrogram.png")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_metadata.json")
+        file_path = os.path.join(path, f"{audio_id}.png")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_metadata.json")
 
         if int(node.split("_")[2]) == 0:
             node_category = "Degradado"
@@ -2899,36 +2955,6 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
-            "product_parent": parent,
-            "product_name": product_name,
-            "product_path": file_path,
-            "product_spectrum": product_spectrum,
-            "CumulusName": cumulus,
-            "NodeCategoryIntegrity": node_category,
-            "NomenclatureNode": node,
-            "SerialNumber": recorder,
-            "DateDeployment": deployment
-        }
-        with open(metadata_filename, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=4)
-            
-        print(f"{file_path} saved.")
-        print(f"{metadata_filename} saved.")
-        
-    def save_metadata_videoclip(product_id, identifier, product_spectrum, path, cumulus, node, recorder, 
-                                deployment, clip_start, clip_end, parent="Null"):
-        product_name = "spectrogram_video"
-        file_path = os.path.join(path, f"{identifier}_spectrogram_video.mp4")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_video_metadata.json")
-
-        if int(node.split("_")[2]) == 0:
-            node_category = "Degradado"
-        elif int(node.split("_")[2]) == 1:
-            node_category = "Integro"
-
-        metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
@@ -2938,8 +2964,41 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
             "NomenclatureNode": node,
             "SerialNumber": recorder,
             "DateDeployment": deployment,
+            "AudioID": audio_id
+        }
+        with open(metadata_filename, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=4)
+            
+        print(f"{file_path} saved.")
+        print(f"{metadata_filename} saved.")
+
+        
+    def save_metadata_videoclip(audio_id, product_spectrum, path, cumulus, node, recorder, 
+                                deployment, clip_start, clip_end, parent="Null"):
+        # identifier is being used as audio_id in alfresco
+        product_name = "spectrogram_video"
+        file_path = os.path.join(path, f"{audio_id}.mp4")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_video_metadata.json")
+
+        if int(node.split("_")[2]) == 0:
+            node_category = "Degradado"
+        elif int(node.split("_")[2]) == 1:
+            node_category = "Integro"
+
+        metadata = {
+            "product_parent": parent,
+            "product_name": product_name,
+            "product_description": "Spectrogram Video. Time is show in local timezone",
+            "product_path": file_path,
+            "product_spectrum": product_spectrum,
+            "CumulusName": cumulus,
+            "NodeCategoryIntegrity": node_category,
+            "NomenclatureNode": node,
+            "SerialNumber": recorder,
+            "DateDeployment": deployment,
             "ClipStart": clip_start,
-            "ClipEnd": clip_end
+            "ClipEnd": clip_end,
+            "AudioID": audio_id
         }
         
         with open(metadata_filename, 'w', encoding='utf-8') as f:
@@ -3007,7 +3066,8 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -3098,18 +3158,17 @@ def spec_n_specvid(AUTH_ENDPOINT: str, BASE_ENDPOINT: str, CUMULO: int, RESULTS_
     sub_folder_results = find_subfolders(RESULTS_DIR)
 
     for sc_path in sub_folder_results:
-        parquet_file_path = os.path.join(sc_path, "hashed_soundscape.parquet")
+        # parquet_file_path = os.path.join(sc_path, "hashed_soundscape.parquet")
         if "hashed_soundscape.parquet" in os.listdir(sc_path):
             print(f"Processing results folder {sc_path}")
-            ids_audios = get_audio_ids(sc_path, indices = ["EXAG", "ICOMPLEXITY", "CORE"])
-            idx_audio = 1
             
+            # filter dataframe by hour
+            ids_audios = get_audio_ids(sc_path, indices = [RED_IDX, GREEN_IDX, BLUE_IDX], nsamples=VIDS_PER_HOUR)
             for id_audio in ids_audios:
                 print(f"Processing audio {id_audio}")
                 try:
-                    plot_spectrogram(id_audio, f"spl{idx_audio}", recs, sc_path, SPECTRUM, CUMULO)   
-                    audio2video(id_audio, f"spl{idx_audio}", recs, sc_path, SPECTRUM, CUMULO)
-                    idx_audio += 1
+                    plot_spectrogram(id_audio, recs, sc_path, SPECTRUM, CUMULO)   
+                    audio2video(id_audio, id_audio, recs, sc_path, SPECTRUM, CUMULO)
                 except:
                     pass
 
@@ -3194,7 +3253,6 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
 
     _kale_block2 = '''
     def audio2video(audio_id,
-                    identifier,
                     audio_df,
                     save_path_folder,
                     product_spectrum,
@@ -3254,10 +3312,10 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
         # edaudio = AudioArrayClip(audio_array, fps=audio.samplerate)
         edaudio = AudioFileClip(audio.path).set_end(audio.duration)
         video = video.set_audio(edaudio)
-        file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram_video.mp4")
+        file_path = os.path.join(save_path_folder, f"{audio_id}.mp4")
         video.write_videofile(file_path, fps=fps)
         
-        save_metadata_videoclip(id_audio, identifier, product_spectrum,
+        save_metadata_videoclip(audio_id, product_spectrum,
                       save_path_folder, cumulus, node, recorder, deployment, 0.0, audio.duration)
         video.close()
         edaudio.close()
@@ -3278,8 +3336,11 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
         elif file_type == "hashed_soundscape.parquet":
             metadata_name = "soundscape_metadata.json" 
             aggr_type = "None"
-        else:
-            metadata_name = file_type.split(".")[0] + "_metadata.json"
+        elif ".png" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_metadata.json"
+            aggr_type = "Null"
+        elif ".mp4" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_video_metadata.json"
             aggr_type = "Null"
 
         try:
@@ -3332,7 +3393,6 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
                                 prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
                                 prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
                                 prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -3344,7 +3404,6 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
                                 prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
                             elif ("spectrogram" or "video") in entry['entry']['name']:
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -3354,6 +3413,7 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
                                 prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
                                 prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
                                 prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:AudioID"] = data_json["AudioID"]
 
                         aspects = entry['entry']['aspectNames']
                         data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
@@ -3405,8 +3465,12 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
                 
         return subdir_list
 
-    def get_audio_ids(soundscape_path, indices):
+    def get_audio_ids(soundscape_path, indices, nsamples):
         df = pd.read_parquet(os.path.join(soundscape_path, "hashed_soundscape.parquet"))
+        
+        df["time_raw_hour"] = df["time_raw"].apply(lambda x: datetime.datetime.strptime(x,'%H:%M:%S %d/%m/%Y (%z)').strftime("%H"))
+        hours_list = list(df.time_raw_hour.unique())
+        hours_list.sort(key = int)
 
         with open(os.path.join(soundscape_path, "soundscape_metadata.json")) as f:
             metadata = json.load(f)
@@ -3417,12 +3481,17 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
         hash_name = metadata["product_configs"]["hash_name"]
         cycle_config = metadata["product_configs"]["hasher_config"]["kwargs"]
         time_unit = cycle_config["time_unit"]
-        zero_t = aware_time( cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
+        zero_t = aware_time(cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
         
-        # sample
-        samples_df = get_recording_samples(df, hash_name, indices, time_unit, zero_t, nsamples=3)
-        sub_df = samples_df[samples_df.crono_hash_30m == 8]
-        audio_id_list = list(sub_df["id"].unique())
+        # iterate over hours
+        audio_id_list = []
+        for hour in hours_list:
+            subdf = df.query(f"time_raw_hour == '{hour}'")
+            # sample
+            samples_df = get_recording_samples(subdf, hash_name, indices, time_unit, zero_t, nsamples=3)
+            unique_crono_hash_list = list(samples_df.crono_hash_30m.unique())
+            sub_df = samples_df[samples_df.crono_hash_30m == min(unique_crono_hash_list)]
+            audio_id_list += list(sub_df.id.tolist())
         
         return audio_id_list
 
@@ -3443,7 +3512,6 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
             mean_unit_vector = unit_vectors.normalized_index_vector.mean()
             unit_vectors.loc[:, "distance"] = unit_vectors.normalized_index_vector.apply(lambda x: distance_to_mean(x, mean_unit_vector))
             all_samples.append(unit_vectors.sort_values(by="distance").head(nsamples))
-
         return pd.concat(all_samples)
 
     def get_vectors(group, indices):
@@ -3475,9 +3543,9 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
 
             return session
         except Exception as e:
-            print("Login failed: ",e)
+            print("Login failed: ", e)
 
-    def plot_spectrogram(audio_id, identifier, audio_df, save_path_folder, spectrum, cumulus):
+    def plot_spectrogram(audio_id, audio_df, save_path_folder, spectrum, cumulus):
         sub_audio_df = audio_df[audio_df["id"]==audio_id]
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
@@ -3491,12 +3559,13 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
         ax[1].set_ylabel('F (KHz)')
         ax[1].set_xlabel('Time (seconds)')
         fig.text(0.75, 0.04, f"Cumulus: {cumulus} - Node: {node} - Recorder: {recorder}", va='center')
-        plt.show()
+        plt.tight_layout()
         if save_path_folder:
-            file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram.png")
+            file_path = os.path.join(save_path_folder, f"{audio_id}.png")
             fig.savefig(file_path)
+        plt.show()
         
-        save_metadata_spectrogram(audio_id, identifier, spectrum, save_path_folder, 
+        save_metadata_spectrogram(audio_id, spectrum, save_path_folder, 
                                   cumulus, node, recorder, deployment, parent="Null")
         
     def plot_soundscape(soundscape, product_type, product_spectrum, sc_config, path, 
@@ -3508,7 +3577,7 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
             
         if product_type == "sequence":
             file_path = os.path.join(path, "sequence.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -3519,12 +3588,12 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
             plt.savefig(file_path) 
             plt.show()
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent=parent)
              
         elif product_type == "standard_deviation":
             file_path = os.path.join(path, "std_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -3537,12 +3606,12 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)     
             
         elif product_type == "mean": 
             file_path = os.path.join(path, "mean_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -3555,7 +3624,7 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)    
             
         print(f"File saved at {file_path}")
@@ -3605,7 +3674,7 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
             if len(os.listdir(path)) == 0:
                 os.rmdir(path)            
                 
-    def save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+    def save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent="Null"):
         if product_type == "soundscape":
             product_name = "Soundscape"
@@ -3630,7 +3699,6 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_configs": sc_config,
@@ -3646,11 +3714,12 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
         with open(metadata_filename, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
 
-    def save_metadata_spectrogram(product_id, identifier, product_spectrum,
+    def save_metadata_spectrogram(audio_id, product_spectrum,
                       path, cumulus, node, recorder, deployment, parent="Null"):
+        # identifier is being used as audio_id in alfresco
         product_name = "Spectrogram"
-        file_path = os.path.join(path, f"{identifier}_spectrogram.png")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_metadata.json")
+        file_path = os.path.join(path, f"{audio_id}.png")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_metadata.json")
 
         if int(node.split("_")[2]) == 0:
             node_category = "Degradado"
@@ -3658,36 +3727,6 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
-            "product_parent": parent,
-            "product_name": product_name,
-            "product_path": file_path,
-            "product_spectrum": product_spectrum,
-            "CumulusName": cumulus,
-            "NodeCategoryIntegrity": node_category,
-            "NomenclatureNode": node,
-            "SerialNumber": recorder,
-            "DateDeployment": deployment
-        }
-        with open(metadata_filename, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=4)
-            
-        print(f"{file_path} saved.")
-        print(f"{metadata_filename} saved.")
-        
-    def save_metadata_videoclip(product_id, identifier, product_spectrum, path, cumulus, node, recorder, 
-                                deployment, clip_start, clip_end, parent="Null"):
-        product_name = "spectrogram_video"
-        file_path = os.path.join(path, f"{identifier}_spectrogram_video.mp4")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_video_metadata.json")
-
-        if int(node.split("_")[2]) == 0:
-            node_category = "Degradado"
-        elif int(node.split("_")[2]) == 1:
-            node_category = "Integro"
-
-        metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
@@ -3697,8 +3736,41 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
             "NomenclatureNode": node,
             "SerialNumber": recorder,
             "DateDeployment": deployment,
+            "AudioID": audio_id
+        }
+        with open(metadata_filename, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=4)
+            
+        print(f"{file_path} saved.")
+        print(f"{metadata_filename} saved.")
+
+        
+    def save_metadata_videoclip(audio_id, product_spectrum, path, cumulus, node, recorder, 
+                                deployment, clip_start, clip_end, parent="Null"):
+        # identifier is being used as audio_id in alfresco
+        product_name = "spectrogram_video"
+        file_path = os.path.join(path, f"{audio_id}.mp4")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_video_metadata.json")
+
+        if int(node.split("_")[2]) == 0:
+            node_category = "Degradado"
+        elif int(node.split("_")[2]) == 1:
+            node_category = "Integro"
+
+        metadata = {
+            "product_parent": parent,
+            "product_name": product_name,
+            "product_description": "Spectrogram Video. Time is show in local timezone",
+            "product_path": file_path,
+            "product_spectrum": product_spectrum,
+            "CumulusName": cumulus,
+            "NodeCategoryIntegrity": node_category,
+            "NomenclatureNode": node,
+            "SerialNumber": recorder,
+            "DateDeployment": deployment,
             "ClipStart": clip_start,
-            "ClipEnd": clip_end
+            "ClipEnd": clip_end,
+            "AudioID": audio_id
         }
         
         with open(metadata_filename, 'w', encoding='utf-8') as f:
@@ -3766,7 +3838,8 @@ def upload_to_alfresco(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_ENDPOINT:
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -3933,7 +4006,6 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
 
     _kale_block2 = '''
     def audio2video(audio_id,
-                    identifier,
                     audio_df,
                     save_path_folder,
                     product_spectrum,
@@ -3993,10 +4065,10 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
         # edaudio = AudioArrayClip(audio_array, fps=audio.samplerate)
         edaudio = AudioFileClip(audio.path).set_end(audio.duration)
         video = video.set_audio(edaudio)
-        file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram_video.mp4")
+        file_path = os.path.join(save_path_folder, f"{audio_id}.mp4")
         video.write_videofile(file_path, fps=fps)
         
-        save_metadata_videoclip(id_audio, identifier, product_spectrum,
+        save_metadata_videoclip(audio_id, product_spectrum,
                       save_path_folder, cumulus, node, recorder, deployment, 0.0, audio.duration)
         video.close()
         edaudio.close()
@@ -4017,8 +4089,11 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
         elif file_type == "hashed_soundscape.parquet":
             metadata_name = "soundscape_metadata.json" 
             aggr_type = "None"
-        else:
-            metadata_name = file_type.split(".")[0] + "_metadata.json"
+        elif ".png" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_metadata.json"
+            aggr_type = "Null"
+        elif ".mp4" in file_type and (file_type not in ["sequence.png", "mean_soundscape.png", "std_soundscape.png"]):
+            metadata_name = file_type.split(".")[0] + "_spectrogram_video_metadata.json"
             aggr_type = "Null"
 
         try:
@@ -4071,7 +4146,6 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
                                 prop_dict["soundscape:indices"] =  ", ".join(map(str, data_json['product_configs']['indices']))
                                 prop_dict["soundscape:n_fft"] = int(data_json["product_configs"]["slice_config"]["feature_config"]["n_fft"])
                                 prop_dict["soundscape:npartitions"] = int(data_json["product_configs"]['npartitions'])
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -4083,7 +4157,6 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
                                 prop_dict["soundscape:window_function"] = str(data_json["product_configs"]["slice_config"]["feature_config"]["window_function"])  
 
                             elif ("spectrogram" or "video") in entry['entry']['name']:
-                                prop_dict["soundscape:product_id"] = str(data_json["product_id"])
                                 prop_dict["soundscape:product_name"] = str(data_json["product_name"])
                                 prop_dict["soundscape:product_parent"] = str(data_json["product_parent"])
                                 prop_dict["soundscape:product_path"] = str(alfresco_path)
@@ -4093,6 +4166,7 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
                                 prop_dict["soundscape:NomenclatureNode"] = str(data_json["NomenclatureNode"])
                                 prop_dict["soundscape:SerialNumber"] = str(data_json["SerialNumber"])
                                 prop_dict["soundscape:DateDeployment"] = data_json["DateDeployment"]
+                                prop_dict["soundscape:AudioID"] = data_json["AudioID"]
 
                         aspects = entry['entry']['aspectNames']
                         data = {"aspectNames": aspects, "nodeType": node_type, "properties": prop_dict}
@@ -4144,8 +4218,12 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
                 
         return subdir_list
 
-    def get_audio_ids(soundscape_path, indices):
+    def get_audio_ids(soundscape_path, indices, nsamples):
         df = pd.read_parquet(os.path.join(soundscape_path, "hashed_soundscape.parquet"))
+        
+        df["time_raw_hour"] = df["time_raw"].apply(lambda x: datetime.datetime.strptime(x,'%H:%M:%S %d/%m/%Y (%z)').strftime("%H"))
+        hours_list = list(df.time_raw_hour.unique())
+        hours_list.sort(key = int)
 
         with open(os.path.join(soundscape_path, "soundscape_metadata.json")) as f:
             metadata = json.load(f)
@@ -4156,12 +4234,17 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
         hash_name = metadata["product_configs"]["hash_name"]
         cycle_config = metadata["product_configs"]["hasher_config"]["kwargs"]
         time_unit = cycle_config["time_unit"]
-        zero_t = aware_time( cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
+        zero_t = aware_time(cycle_config["start_time"], cycle_config["start_tzone"], cycle_config["start_format"]) 
         
-        # sample
-        samples_df = get_recording_samples(df, hash_name, indices, time_unit, zero_t, nsamples=3)
-        sub_df = samples_df[samples_df.crono_hash_30m == 8]
-        audio_id_list = list(sub_df["id"].unique())
+        # iterate over hours
+        audio_id_list = []
+        for hour in hours_list:
+            subdf = df.query(f"time_raw_hour == '{hour}'")
+            # sample
+            samples_df = get_recording_samples(subdf, hash_name, indices, time_unit, zero_t, nsamples=3)
+            unique_crono_hash_list = list(samples_df.crono_hash_30m.unique())
+            sub_df = samples_df[samples_df.crono_hash_30m == min(unique_crono_hash_list)]
+            audio_id_list += list(sub_df.id.tolist())
         
         return audio_id_list
 
@@ -4182,7 +4265,6 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
             mean_unit_vector = unit_vectors.normalized_index_vector.mean()
             unit_vectors.loc[:, "distance"] = unit_vectors.normalized_index_vector.apply(lambda x: distance_to_mean(x, mean_unit_vector))
             all_samples.append(unit_vectors.sort_values(by="distance").head(nsamples))
-
         return pd.concat(all_samples)
 
     def get_vectors(group, indices):
@@ -4214,9 +4296,9 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
 
             return session
         except Exception as e:
-            print("Login failed: ",e)
+            print("Login failed: ", e)
 
-    def plot_spectrogram(audio_id, identifier, audio_df, save_path_folder, spectrum, cumulus):
+    def plot_spectrogram(audio_id, audio_df, save_path_folder, spectrum, cumulus):
         sub_audio_df = audio_df[audio_df["id"]==audio_id]
         node = sub_audio_df['node'].values[0]
         recorder = sub_audio_df['recorder'].values[0]
@@ -4230,12 +4312,13 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
         ax[1].set_ylabel('F (KHz)')
         ax[1].set_xlabel('Time (seconds)')
         fig.text(0.75, 0.04, f"Cumulus: {cumulus} - Node: {node} - Recorder: {recorder}", va='center')
-        plt.show()
+        plt.tight_layout()
         if save_path_folder:
-            file_path = os.path.join(save_path_folder, f"{identifier}_spectrogram.png")
+            file_path = os.path.join(save_path_folder, f"{audio_id}.png")
             fig.savefig(file_path)
+        plt.show()
         
-        save_metadata_spectrogram(audio_id, identifier, spectrum, save_path_folder, 
+        save_metadata_spectrogram(audio_id, spectrum, save_path_folder, 
                                   cumulus, node, recorder, deployment, parent="Null")
         
     def plot_soundscape(soundscape, product_type, product_spectrum, sc_config, path, 
@@ -4247,7 +4330,7 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
             
         if product_type == "sequence":
             file_path = os.path.join(path, "sequence.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -4258,12 +4341,12 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
             plt.savefig(file_path) 
             plt.show()
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent=parent)
              
         elif product_type == "standard_deviation":
             file_path = os.path.join(path, "std_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -4276,12 +4359,12 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)     
             
         elif product_type == "mean": 
             file_path = os.path.join(path, "mean_soundscape.png")
-            product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
+            # product_id = hashlib.md5(file_path.encode('utf-8')).hexdigest()
             
             plt.style.use(plt_style)
             fig, ax = plt.subplots(figsize=figsize)
@@ -4294,7 +4377,7 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
             plt.show()
             
             # save metadata
-            save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+            save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent)    
             
         print(f"File saved at {file_path}")
@@ -4344,7 +4427,7 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
             if len(os.listdir(path)) == 0:
                 os.rmdir(path)            
                 
-    def save_metadata_sc(product_id, product_type, product_spectrum, sc_config,
+    def save_metadata_sc(product_type, product_spectrum, sc_config,
                       path, cumulus, node, recorder, deployment, parent="Null"):
         if product_type == "soundscape":
             product_name = "Soundscape"
@@ -4369,7 +4452,6 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_configs": sc_config,
@@ -4385,11 +4467,12 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
         with open(metadata_filename, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
 
-    def save_metadata_spectrogram(product_id, identifier, product_spectrum,
+    def save_metadata_spectrogram(audio_id, product_spectrum,
                       path, cumulus, node, recorder, deployment, parent="Null"):
+        # identifier is being used as audio_id in alfresco
         product_name = "Spectrogram"
-        file_path = os.path.join(path, f"{identifier}_spectrogram.png")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_metadata.json")
+        file_path = os.path.join(path, f"{audio_id}.png")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_metadata.json")
 
         if int(node.split("_")[2]) == 0:
             node_category = "Degradado"
@@ -4397,36 +4480,6 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
             node_category = "Integro"
 
         metadata = {
-            "product_id": product_id,
-            "product_parent": parent,
-            "product_name": product_name,
-            "product_path": file_path,
-            "product_spectrum": product_spectrum,
-            "CumulusName": cumulus,
-            "NodeCategoryIntegrity": node_category,
-            "NomenclatureNode": node,
-            "SerialNumber": recorder,
-            "DateDeployment": deployment
-        }
-        with open(metadata_filename, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=4)
-            
-        print(f"{file_path} saved.")
-        print(f"{metadata_filename} saved.")
-        
-    def save_metadata_videoclip(product_id, identifier, product_spectrum, path, cumulus, node, recorder, 
-                                deployment, clip_start, clip_end, parent="Null"):
-        product_name = "spectrogram_video"
-        file_path = os.path.join(path, f"{identifier}_spectrogram_video.mp4")
-        metadata_filename = os.path.join(path, f"{identifier}_spectrogram_video_metadata.json")
-
-        if int(node.split("_")[2]) == 0:
-            node_category = "Degradado"
-        elif int(node.split("_")[2]) == 1:
-            node_category = "Integro"
-
-        metadata = {
-            "product_id": product_id,
             "product_parent": parent,
             "product_name": product_name,
             "product_path": file_path,
@@ -4436,8 +4489,41 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
             "NomenclatureNode": node,
             "SerialNumber": recorder,
             "DateDeployment": deployment,
+            "AudioID": audio_id
+        }
+        with open(metadata_filename, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=4)
+            
+        print(f"{file_path} saved.")
+        print(f"{metadata_filename} saved.")
+
+        
+    def save_metadata_videoclip(audio_id, product_spectrum, path, cumulus, node, recorder, 
+                                deployment, clip_start, clip_end, parent="Null"):
+        # identifier is being used as audio_id in alfresco
+        product_name = "spectrogram_video"
+        file_path = os.path.join(path, f"{audio_id}.mp4")
+        metadata_filename = os.path.join(path, f"{audio_id}_spectrogram_video_metadata.json")
+
+        if int(node.split("_")[2]) == 0:
+            node_category = "Degradado"
+        elif int(node.split("_")[2]) == 1:
+            node_category = "Integro"
+
+        metadata = {
+            "product_parent": parent,
+            "product_name": product_name,
+            "product_description": "Spectrogram Video. Time is show in local timezone",
+            "product_path": file_path,
+            "product_spectrum": product_spectrum,
+            "CumulusName": cumulus,
+            "NodeCategoryIntegrity": node_category,
+            "NomenclatureNode": node,
+            "SerialNumber": recorder,
+            "DateDeployment": deployment,
             "ClipStart": clip_start,
-            "ClipEnd": clip_end
+            "ClipEnd": clip_end,
+            "AudioID": audio_id
         }
         
         with open(metadata_filename, 'w', encoding='utf-8') as f:
@@ -4505,7 +4591,8 @@ def upload_alfresco_model_data(ALFRESCO_NODE_ID: str, AUTH_ENDPOINT: str, BASE_E
 
         total_files = len(files_in_dir)
         starttime = time.time()
-
+        print(f"total_files: {total_files}")
+        
         try:
             files_uploaded = []
             for idx, file_with_path in enumerate(files_in_dir):
@@ -4641,10 +4728,10 @@ _kale_upload_alfresco_model_data_op = _kfp_components.func_to_container_op(
 
 
 @_kfp_dsl.pipeline(
-    name='sound-scape-nod-rec-dep-yyt8u',
+    name='sound-scape-nod-rec-dep-yvj8a',
     description='Computes Sipecam Soundscapes using cumulus, node, recorder and deployment'
 )
-def auto_generated_pipeline(ALFRESCO_NODE_ID='cf3a1b97-965d-489f-bfdf-5c8e26c4ac95', AUTH_ENDPOINT='alfresco/api/-default-/public/authentication/versions/1', BASE_ENDPOINT='alfresco/api/-default-/public/alfresco/versions/1', BLUE_IDX='CORE', CUMULO='95', FREQUENCY_BINS='96', FREQUENCY_LIMITS_LB='0', FREQUENCY_LIMITS_UB='24000', GREEN_IDX='INFORMATION', HASHER_TIME_MODULE='48', HASHER_TIME_UNIT='1800', HASH_NAME='crono_hash_30m', LIMIT='False', MIN_FREQ_SC='10000', PAGESIZE='1000', RED_IDX='EXAG', RESULTS_DIR='/shared_volume/audio/soundscapes', SAMPLERATE='48000.0', SPECTRUM='Audible', THREADS_PER_WORKER='2', TIME_UNIT='30', WORK_DIR_PIPELINE='.', vol_shared_volume='hostpath-pvc'):
+def auto_generated_pipeline(ALFRESCO_NODE_ID='cf3a1b97-965d-489f-bfdf-5c8e26c4ac95', AUTH_ENDPOINT='alfresco/api/-default-/public/authentication/versions/1', BASE_ENDPOINT='alfresco/api/-default-/public/alfresco/versions/1', BLUE_IDX='CORE', CUMULO='92', FREQUENCY_BINS='96', FREQUENCY_LIMITS_LB='0', FREQUENCY_LIMITS_UB='24000', GREEN_IDX='INFORMATION', HASHER_TIME_MODULE='48', HASHER_TIME_UNIT='1800', HASH_NAME='crono_hash_30m', LIMIT='False', MIN_FREQ_SC='10000', PAGESIZE='9000', RED_IDX='EXAG', RESULTS_DIR='/shared_volume/audio/soundscapes', SAMPLERATE='48000.0', SPECTRUM='Audible', THREADS_PER_WORKER='2', TIME_UNIT='30', VIDS_PER_HOUR='3', WORK_DIR_PIPELINE='.', vol_shared_volume='hostpath-pvc'):
     _kale_pvolumes_dict = OrderedDict()
     _kale_volume_step_names = []
     _kale_volume_name_parameters = []
@@ -4729,7 +4816,7 @@ def auto_generated_pipeline(ALFRESCO_NODE_ID='cf3a1b97-965d-489f-bfdf-5c8e26c4ac
             "kubeflow-kale.org/volume-name-parameters",
             json.dumps(_kale_volume_name_parameters))
 
-    _kale_spec_n_specvid_task = _kale_spec_n_specvid_op(AUTH_ENDPOINT, BASE_ENDPOINT, CUMULO, RESULTS_DIR, SPECTRUM)\
+    _kale_spec_n_specvid_task = _kale_spec_n_specvid_op(AUTH_ENDPOINT, BASE_ENDPOINT, BLUE_IDX, CUMULO, GREEN_IDX, RED_IDX, RESULTS_DIR, SPECTRUM, VIDS_PER_HOUR)\
         .add_pvolumes(_kale_pvolumes_dict)\
         .after(_kale_compute_soundscapes_task)
     _kale_spec_n_specvid_task.container.working_dir = "//shared_volume/audio"
@@ -4814,6 +4901,107 @@ if __name__ == "__main__":
 
     # Submit a pipeline run
     from kale.common.kfputils import generate_run_name
-    run_name = generate_run_name('sound-scape-nod-rec-dep-yyt8u')
+    run_name = generate_run_name('sound-scape-nod-rec-dep-rs7g6')
+    pipeline_parameters = {"CUMULO": 92,
+                           "SAMPLERATE": 48000.0,
+                           "PAGESIZE": 9000,
+                           "RED_IDX": "EXAG",
+                           "GREEN_IDX": "INFORMATION",
+                           "BLUE_IDX": "CORE",
+                           "MIN_FREQ_SC": 10000,
+                           "WORK_DIR_PIPELINE": ".",
+                           "TIME_UNIT": 30,
+                           "FREQUENCY_BINS": 96,
+                           "FREQUENCY_LIMITS_LB": 0,
+                           "FREQUENCY_LIMITS_UB": 24000,
+                           "SPECTRUM": "Audible",
+                           "HASHER_TIME_UNIT": 1800,
+                           "HASHER_TIME_MODULE": 48,
+                           "HASH_NAME" : "crono_hash_30m",
+                           "VIDS_PER_HOUR" : 3,
+                           "THREADS_PER_WORKER": 2,
+                           "RESULTS_DIR": '/shared_volume/audio/soundscapes',
+                           "ALFRESCO_NODE_ID" : "cf3a1b97-965d-489f-bfdf-5c8e26c4ac95",
+                           "BASE_ENDPOINT" : "alfresco/api/-default-/public/alfresco/versions/1",
+                           "AUTH_ENDPOINT" : "alfresco/api/-default-/public/authentication/versions/1"}
     run_result = client.run_pipeline(
-        experiment.id, run_name, pipeline_filename, {})
+        experiment.id, run_name, pipeline_filename, pipeline_parameters)
+
+    import time
+    time.sleep(180)
+    pipeline_parameters = {"CUMULO": 95,
+                           "SAMPLERATE": 48000.0,
+                           "PAGESIZE": 7000,
+                           "RED_IDX": "EXAG",
+                           "GREEN_IDX": "INFORMATION",
+                           "BLUE_IDX": "CORE",
+                           "MIN_FREQ_SC": 10000,
+                           "WORK_DIR_PIPELINE": ".",
+                           "TIME_UNIT": 30,
+                           "FREQUENCY_BINS": 96,
+                           "FREQUENCY_LIMITS_LB": 0,
+                           "FREQUENCY_LIMITS_UB": 24000,
+                           "SPECTRUM": "Audible",
+                           "HASHER_TIME_UNIT": 1800,
+                           "HASHER_TIME_MODULE": 48,
+                           "HASH_NAME": "crono_hash_30m",
+                           "VIDS_PER_HOUR": 3,
+                           "THREADS_PER_WORKER": 2,
+                           "RESULTS_DIR": '/shared_volume/audio/soundscapes',
+                           "ALFRESCO_NODE_ID": "cf3a1b97-965d-489f-bfdf-5c8e26c4ac95",
+                           "BASE_ENDPOINT": "alfresco/api/-default-/public/alfresco/versions/1",
+                           "AUTH_ENDPOINT": "alfresco/api/-default-/public/authentication/versions/1"}
+    run_result = client.run_pipeline(
+        experiment.id, run_name, pipeline_filename, pipeline_parameters)
+
+    time.sleep(180)
+    pipeline_parameters = {"CUMULO": 32,
+                           "SAMPLERATE": 48000.0,
+                           "PAGESIZE": 4000,
+                           "RED_IDX": "EXAG",
+                           "GREEN_IDX": "INFORMATION",
+                           "BLUE_IDX": "CORE",
+                           "MIN_FREQ_SC": 10000,
+                           "WORK_DIR_PIPELINE": ".",
+                           "TIME_UNIT": 30,
+                           "FREQUENCY_BINS": 96,
+                           "FREQUENCY_LIMITS_LB": 0,
+                           "FREQUENCY_LIMITS_UB": 24000,
+                           "SPECTRUM": "Audible",
+                           "HASHER_TIME_UNIT": 1800,
+                           "HASHER_TIME_MODULE": 48,
+                           "HASH_NAME": "crono_hash_30m",
+                           "VIDS_PER_HOUR": 3,
+                           "THREADS_PER_WORKER": 2,
+                           "RESULTS_DIR": '/shared_volume/audio/soundscapes',
+                           "ALFRESCO_NODE_ID": "cf3a1b97-965d-489f-bfdf-5c8e26c4ac95",
+                           "BASE_ENDPOINT": "alfresco/api/-default-/public/alfresco/versions/1",
+                           "AUTH_ENDPOINT": "alfresco/api/-default-/public/authentication/versions/1"}
+    run_result = client.run_pipeline(
+        experiment.id, run_name, pipeline_filename, pipeline_parameters)
+
+    time.sleep(180)
+    pipeline_parameters = {"CUMULO": 13,
+                           "SAMPLERATE": 48000.0,
+                           "PAGESIZE": 9000,
+                           "RED_IDX": "EXAG",
+                           "GREEN_IDX": "INFORMATION",
+                           "BLUE_IDX": "CORE",
+                           "MIN_FREQ_SC": 10000,
+                           "WORK_DIR_PIPELINE": ".",
+                           "TIME_UNIT": 30,
+                           "FREQUENCY_BINS": 96,
+                           "FREQUENCY_LIMITS_LB": 0,
+                           "FREQUENCY_LIMITS_UB": 24000,
+                           "SPECTRUM": "Audible",
+                           "HASHER_TIME_UNIT": 1800,
+                           "HASHER_TIME_MODULE": 48,
+                           "HASH_NAME": "crono_hash_30m",
+                           "VIDS_PER_HOUR": 3,
+                           "THREADS_PER_WORKER": 2,
+                           "RESULTS_DIR": '/shared_volume/audio/soundscapes',
+                           "ALFRESCO_NODE_ID": "cf3a1b97-965d-489f-bfdf-5c8e26c4ac95",
+                           "BASE_ENDPOINT": "alfresco/api/-default-/public/alfresco/versions/1",
+                           "AUTH_ENDPOINT": "alfresco/api/-default-/public/authentication/versions/1"}
+    run_result = client.run_pipeline(
+        experiment.id, run_name, pipeline_filename, pipeline_parameters)
